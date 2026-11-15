@@ -81,6 +81,15 @@ or use the buttons:
 
 You can also update in plain language: "move sport to 20:00".
 
+### Groups
+
+Add the bot to a group. Routines created in the group belong to the group (a `users` row whose
+`telegram_id` is the group chat id), have the group's timezone, and are reminded **in the group**.
+
+- Only group admins (including anonymous admins) can create, edit or delete them, or set `/timezone`. Anyone can use `/routines` and `/help`.
+- The bot only reacts to messages that mention it (`@bot sport at 19`) or reply to it. When it asks for a new time or title, reply to its message.
+- If the group is upgraded to a supergroup and gets a new chat id, its routines move to the new id.
+
 ## Notes
 
 - `days` are 0=Mon … 6=Sun; empty = every day.

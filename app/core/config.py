@@ -20,7 +20,7 @@ class Settings(BaseSettings):
     OPENROUTER_TIMEOUT: float = 30.0
     OPENROUTER_MAX_RETRIES: int = 2
     TELEGRAM_BOT_TOKEN: str = ""
-    DEFAULT_TIMEZONE: str = "UTC"
+    DEFAULT_TIMEZONE: str = "Asia/Tehran"
     REMINDER_CHECK_SECONDS: int = 30
     # A reminder is still sent if the app was down/busy for up to this many minutes after the routine time.
     REMINDER_GRACE_MINUTES: int = 5

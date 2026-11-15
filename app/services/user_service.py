@@ -53,3 +53,11 @@ async def update_user(db: AsyncSession, user: User, **fields) -> User:
     await db.commit()
     await db.refresh(user)
     return user
+
+
+async def migrate_telegram_id(db: AsyncSession, old_id: int, new_id: int) -> None:
+    """Telegram gives a group a new chat id when it becomes a supergroup."""
+    user = await db.scalar(select(User).where(User.telegram_id == old_id))
+    if user and not await db.scalar(select(User).where(User.telegram_id == new_id)):
+        user.telegram_id = new_id
+        await db.commit()

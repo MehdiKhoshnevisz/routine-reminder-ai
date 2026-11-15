@@ -8,6 +8,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import select
 from sqlalchemy.orm import joinedload
 from telegram import Bot
+from telegram.error import ChatMigrated
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -70,7 +71,12 @@ async def check_and_send(bot: Bot) -> None:
             if routine.description:
                 text += f"\n{routine.description}"
             try:
-                await bot.send_message(chat_id=routine.user.telegram_id, text=text)
+                # telegram_id is a person (private chat) or a group (routine created in the group).
+                try:
+                    await bot.send_message(chat_id=routine.user.telegram_id, text=text)
+                except ChatMigrated as e:  # group became a supergroup
+                    routine.user.telegram_id = e.new_chat_id
+                    await bot.send_message(chat_id=e.new_chat_id, text=text)
                 routine.last_reminded_on = now_local.date()
                 log.info("Reminded user %s about routine %s", routine.user_id, routine.id)
             except Exception:

@@ -1,3 +1,4 @@
+import functools
 import logging
 import re
 
@@ -10,7 +11,7 @@ from telegram import (
     ReplyKeyboardMarkup,
     Update,
 )
-from telegram.constants import ChatAction
+from telegram.constants import ChatAction, ChatMemberStatus, ChatType
 from telegram.ext import (
     Application,
     CallbackQueryHandler,
@@ -89,8 +90,25 @@ DESCRIPTION = (
 SHORT_DESCRIPTION = "ناصرم =) روتین‌هات رو بگو، سر وقت بهت یادآوری می‌کنم ⏰"
 
 
-def _help_text(user) -> str:
-    return f"{HELP}\n\n🕒 منطقه زمانی فعلی: {user.timezone}"
+GROUP_HELP = (
+    "سلام! من ناصرم =)\n"
+    "روتین‌های این گروه رو سر وقت توی همین گروه یادآوری می‌کنم.\n\n"
+    "فقط ادمین‌های گروه می‌تونن روتین بسازن یا تغییر بدن.\n"
+    "برای ساختن روتین منو منشن کن یا روی پیامم ریپلای کن، مثلاً:\n"
+    "• @{username} جلسه ساعت ۱۰ روزهای کاری\n"
+    "• @{username} ورزش گروهی ساعت ۱۹ آخر هفته‌ها\n\n"
+    "دستورها:\n"
+    "/routines – دیدن روتین‌های گروه\n"
+    "/update – ویرایش روتین (ادمین)\n"
+    "/delete – حذف روتین (ادمین)\n"
+    "/timezone – تنظیم منطقه زمانی گروه (ادمین)\n"
+    "/cancel – لغو عملیات فعلی"
+)
+
+
+def _help_text(user, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> str:
+    text = GROUP_HELP.format(username=ctx.bot.username) if _is_group(update) else HELP
+    return f"{text}\n\n🕒 منطقه زمانی فعلی: {user.timezone}"
 
 # Callback data (max 64 bytes):
 #   ls:<mode>          list routines as buttons (mode: edit|del)
@@ -159,9 +177,76 @@ def _routine_text(r) -> str:
 
 # ---------- helpers ----------
 
+def _is_group(update: Update) -> bool:
+    return update.effective_chat is not None and update.effective_chat.type in (ChatType.GROUP, ChatType.SUPERGROUP)
+
+
+def _menu(update: Update):
+    """The reply-keyboard menu only in private chats (in a group it would pop up for every member)."""
+    return None if _is_group(update) else MAIN_MENU
+
+
+def _reply_hint(update: Update) -> str:
+    # With privacy mode on, the bot only sees group messages that reply to it or mention it.
+    return "\n(روی همین پیام ریپلای کن)" if _is_group(update) else ""
+
+
 async def _user(db, update: Update):
+    """Owner of the routines in this chat. In a group that's the group itself (its own User row with
+    telegram_id = group chat id), so its routines, timezone and reminders belong to the group."""
+    if _is_group(update):
+        chat = update.effective_chat
+        return await user_service.get_or_create_telegram_user(db, chat.id, chat.title or "گروه")
     tg = update.effective_user
     return await user_service.get_or_create_telegram_user(db, tg.id, tg.full_name or tg.username or "دوست")
+
+
+async def _is_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> bool:
+    if not _is_group(update):
+        return True
+    chat = update.effective_chat
+    msg = update.message
+    if msg and msg.sender_chat and msg.sender_chat.id == chat.id:
+        return True  # anonymous group admin
+    if not update.effective_user:
+        return False
+    try:
+        member = await ctx.bot.get_chat_member(chat.id, update.effective_user.id)
+    except Exception:
+        log.exception("get_chat_member failed")
+        return False
+    return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
+
+
+NOT_ADMIN = "توی گروه فقط ادمین‌ها می‌تونن روتین‌ها رو بسازن یا تغییر بدن."
+
+
+def admin_only(handler):
+    @functools.wraps(handler)
+    async def wrapper(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+        if await _is_admin(update, ctx):
+            return await handler(update, ctx)
+        if update.callback_query:
+            await update.callback_query.answer(NOT_ADMIN, show_alert=True)
+        else:
+            await update.effective_message.reply_text(NOT_ADMIN)
+
+    return wrapper
+
+
+def _addressed_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> str | None:
+    """Text meant for the bot. In groups only messages that mention the bot or reply to it count
+    (an admin bot receives every group message); the mention is stripped."""
+    msg = update.message
+    if not _is_group(update):
+        return msg.text
+    mention = f"@{ctx.bot.username}"
+    if mention.lower() in msg.text.lower():
+        return re.sub(re.escape(mention), "", msg.text, flags=re.IGNORECASE).strip() or None
+    reply = msg.reply_to_message
+    if reply and reply.from_user and reply.from_user.id == ctx.bot.id:
+        return msg.text
+    return None
 
 
 async def _send_routine_picker(update: Update, mode: str):
@@ -181,7 +266,7 @@ async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.clear()
     async with SessionLocal() as db:
         user = await _user(db, update)
-    await update.message.reply_text(_help_text(user), reply_markup=MAIN_MENU)
+    await update.message.reply_text(_help_text(user, update, ctx), reply_markup=_menu(update))
 
 
 async def routines_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE):
@@ -189,7 +274,7 @@ async def routines_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE):
         user = await _user(db, update)
         items = await rs.list_routines(db, user.id)
     if not items:
-        await update.message.reply_text("هنوز هیچ روتینی نداری.", reply_markup=MAIN_MENU)
+        await update.message.reply_text("هنوز هیچ روتینی نداری.", reply_markup=_menu(update))
         return
     text = "📋 روتین‌های شما:\n" + "\n".join(rs.format_routine(r) for r in items)
     await update.message.reply_text(
@@ -198,6 +283,7 @@ async def routines_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE):
     )
 
 
+@admin_only
 async def update_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """/update -> pick from buttons;  /update <id> -> open that routine directly."""
     ctx.user_data.pop("awaiting", None)
@@ -213,6 +299,7 @@ async def update_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _send_routine_picker(update, "edit")
 
 
+@admin_only
 async def delete_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """/delete -> pick from buttons;  /delete <id> -> ask confirmation for that routine."""
     if ctx.args and ctx.args[0].lstrip("#").isdigit():
@@ -227,9 +314,10 @@ async def delete_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await _send_routine_picker(update, "del")
 
 
+@admin_only
 async def timezone_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     if not ctx.args:
-        ctx.user_data["awaiting"] = {"field": "timezone"}
+        ctx.user_data["awaiting"] = {"field": "timezone", "chat": update.effective_chat.id}
         async with SessionLocal() as db:
             user = await _user(db, update)
         await update.effective_message.reply_text(
@@ -243,7 +331,7 @@ async def timezone_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             "• America/New_York (نیویورک)\n"
             "• Asia/Dubai (دبی)\n\n"
             "می‌تونی مستقیم هم بنویسی:\n /timezone Asia/Tehran\n"
-            "برای لغو: /cancel"
+            "برای لغو: /cancel" + _reply_hint(update)
         )
         return
     await _set_timezone(update, ctx.args[0])
@@ -251,15 +339,16 @@ async def timezone_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 async def cancel_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.clear()
-    await update.message.reply_text("لغو شد.", reply_markup=MAIN_MENU)
+    await update.message.reply_text("لغو شد.", reply_markup=_menu(update))
 
 
-async def help_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE):
+async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     async with SessionLocal() as db:
         user = await _user(db, update)
-    await update.message.reply_text(_help_text(user), reply_markup=MAIN_MENU)
+    await update.message.reply_text(_help_text(user, update, ctx), reply_markup=_menu(update))
 
 
+@admin_only
 async def new_routine_btn(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.pop("awaiting", None)
     await update.message.reply_text(
@@ -281,7 +370,7 @@ async def _set_timezone(update: Update, tz: str):
         except ValueError as e:
             await update.effective_message.reply_text(f"{e}\nمثلاً Asia/Tehran یا Europe/London رو امتحان کن.")
             return False
-    await update.effective_message.reply_text(f"🌍 منطقه زمانی روی {tz} تنظیم شد", reply_markup=MAIN_MENU)
+    await update.effective_message.reply_text(f"🌍 منطقه زمانی روی {tz} تنظیم شد", reply_markup=_menu(update))
     return True
 
 
@@ -294,6 +383,7 @@ def _confirm_delete(routine_id: int) -> InlineKeyboardMarkup:
 
 # ---------- inline button callbacks ----------
 
+@admin_only
 async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     q = update.callback_query
     await q.answer()
@@ -328,13 +418,13 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
         elif action == "e":
             field = rest[1]
-            ctx.user_data["awaiting"] = {"field": field, "routine_id": r.id}
+            ctx.user_data["awaiting"] = {"field": field, "routine_id": r.id, "chat": update.effective_chat.id}
             prompt = (
                 f"ساعت جدید «{r.title}» رو بفرست (۲۴ ساعته، مثلاً 07:30 یا 19:00)، یا /cancel."
                 if field == "time"
                 else f"عنوان جدید «{r.title}» رو بفرست، یا /cancel."
             )
-            await q.edit_message_text(prompt)
+            await q.edit_message_text(prompt + _reply_hint(update))
 
         elif action == "dp":
             # user_data is stored as JSON in webhook mode, so keep lists (not sets) in it
@@ -373,8 +463,8 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
 # ---------- free text ----------
 
-async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, awaiting: dict) -> None:
-    text = update.message.text.strip()
+async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, awaiting: dict, text: str) -> None:
+    text = text.strip()
     field = awaiting["field"]
 
     if field == "timezone":
@@ -402,16 +492,23 @@ async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, await
 
 
 async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    text = _addressed_text(update, ctx)
+    if not text:
+        return  # group chatter not meant for the bot
+    if not await _is_admin(update, ctx):
+        await update.message.reply_text(NOT_ADMIN)
+        return
+
     awaiting = ctx.user_data.get("awaiting")
-    if awaiting:
-        await _handle_awaiting(update, ctx, awaiting)
+    if awaiting and awaiting.get("chat", update.effective_chat.id) == update.effective_chat.id:
+        await _handle_awaiting(update, ctx, awaiting, text)
         return
 
     await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
     async with SessionLocal() as db:
         user = await _user(db, update)
         try:
-            reply = await agent.chat(db, user, update.message.text)
+            reply = await agent.chat(db, user, text)
         except RateLimitError:
             log.warning("OpenRouter rate limited")
             reply = "الان درخواست‌ها خیلی زیاده. لطفاً یک دقیقه دیگه دوباره امتحان کن."
@@ -424,7 +521,25 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         except Exception:
             log.exception("agent failed")
             reply = "متأسفم، مغزم (OpenRouter) الان جواب نمی‌ده. لطفاً چند لحظه دیگه دوباره امتحان کن."
-    await update.message.reply_text(reply, reply_markup=MAIN_MENU)
+    await update.message.reply_text(reply, reply_markup=_menu(update))
+
+
+# ---------- group events ----------
+
+async def on_new_members(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    if not any(m.id == ctx.bot.id for m in update.message.new_chat_members):
+        return
+    async with SessionLocal() as db:
+        group = await _user(db, update)
+    await update.message.reply_text(_help_text(group, update, ctx))
+
+
+async def on_migrate(update: Update, _: ContextTypes.DEFAULT_TYPE):
+    """A group became a supergroup and got a new chat id: move its routines along."""
+    msg = update.message
+    if msg.migrate_to_chat_id:
+        async with SessionLocal() as db:
+            await user_service.migrate_telegram_id(db, msg.chat.id, msg.migrate_to_chat_id)
 
 
 # ---------- setup ----------
@@ -439,6 +554,8 @@ def build_application() -> Application | None:
         return None
     app = Application.builder().token(settings.TELEGRAM_BOT_TOKEN).build()
 
+    app.add_handler(MessageHandler(filters.StatusUpdate.NEW_CHAT_MEMBERS, on_new_members))
+    app.add_handler(MessageHandler(filters.StatusUpdate.MIGRATE, on_migrate))
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("help", help_cmd))
     app.add_handler(CommandHandler("routines", routines_cmd))
