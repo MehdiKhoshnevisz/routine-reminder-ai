@@ -124,7 +124,10 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
 
     history += [
         {"role": "user", "content": message},
-        {"role": "assistant", "content": json.dumps(out.model_dump(exclude_none=True), ensure_ascii=False)},
+        # compact: no default fields ("message": "", "off_topic": false, null ids), no spaces
+        {"role": "assistant", "content": json.dumps(
+            out.model_dump(exclude_defaults=True), ensure_ascii=False, separators=(",", ":")
+        )},
     ]
     await state_service.save_agent_history(db, user.id, history[-HISTORY_LEN:])
     return reply

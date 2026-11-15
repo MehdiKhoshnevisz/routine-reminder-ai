@@ -604,10 +604,14 @@ async def process_webhook_update(data: dict) -> None:
     async with app:  # initialize() / shutdown()
         update = Update.de_json(data, app.bot)
         tg_user = update.effective_user
+        previous: dict = {}
         if tg_user:
             async with SessionLocal() as db:
-                app.user_data[tg_user.id].update(await state_service.get_telegram_state(db, tg_user.id))
+                previous = await state_service.get_telegram_state(db, tg_user.id)
+            app.user_data[tg_user.id].update(previous)
         await app.process_update(update)
         if tg_user:
             async with SessionLocal() as db:
-                await state_service.save_telegram_state(db, tg_user.id, dict(app.user_data[tg_user.id]))
+                await state_service.save_telegram_state(
+                    db, tg_user.id, dict(app.user_data[tg_user.id]), previous
+                )

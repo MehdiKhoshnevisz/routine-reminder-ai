@@ -1,5 +1,6 @@
 from collections.abc import AsyncIterator
 
+from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -19,6 +20,10 @@ SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 _db_ready = False
 
+_MIGRATIONS = [
+    "ALTER TABLE agent_histories ADD COLUMN IF NOT EXISTS updated_at timestamptz NOT NULL DEFAULT now()",
+]
+
 
 async def get_db() -> AsyncIterator[AsyncSession]:
     await init_db()
@@ -35,4 +40,7 @@ async def init_db() -> None:
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Lightweight migrations for tables that already existed before a column was added.
+        for stmt in _MIGRATIONS:
+            await conn.execute(text(stmt))
     _db_ready = True

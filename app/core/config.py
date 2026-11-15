@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     REMINDER_CHECK_SECONDS: int = 30
     # A reminder is still sent if the app was down/busy for up to this many minutes after the routine time.
     REMINDER_GRACE_MINUTES: int = 5
+    # Agent chat history older than this is ignored and deleted hourly (only needed for follow-ups
+    # like "move it to 8"; keeping it forever was most of each user's storage).
+    AGENT_HISTORY_TTL_MINUTES: int = 120
 
     # "polling" = long-running process (local dev, uvicorn).
     # "webhook" = serverless (Vercel): Telegram POSTs updates to /api/telegram/webhook and an

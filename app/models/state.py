@@ -1,6 +1,8 @@
 """Conversation state that used to live in memory; stored in the DB so it survives serverless restarts."""
 
-from sqlalchemy import BigInteger, ForeignKey
+from datetime import datetime
+
+from sqlalchemy import BigInteger, DateTime, ForeignKey, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -23,3 +25,4 @@ class AgentHistory(Base):
 
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
     messages: Mapped[list] = mapped_column(JSONB, default=list)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
