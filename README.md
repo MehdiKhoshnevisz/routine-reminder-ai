@@ -1,6 +1,6 @@
 # Routine AI – backend
 
-FastAPI + PostgreSQL + Ollama (local LLM) + Telegram bot.
+FastAPI + PostgreSQL + OpenRouter (LLM) + Telegram bot.
 Tell the agent your routines in plain language ("brush teeth at 7:10, sport at 19 o'clock on weekdays")
 and it stores them; the Telegram bot then messages you at each routine's time.
 
@@ -24,9 +24,8 @@ app/
 
 ```bash
 docker compose up -d                 # PostgreSQL on :5432
-ollama serve                         # if not already running (model: llama3.2)
 python3 -m venv .venv && .venv/bin/pip install -r requirements.txt
-cp .env.example .env                 # then set TELEGRAM_BOT_TOKEN (from @BotFather)
+cp .env.example .env                 # then set OPENROUTER_API_KEY and TELEGRAM_BOT_TOKEN (from @BotFather)
 .venv/bin/uvicorn app.main:app --reload
 ```
 
@@ -64,6 +63,5 @@ You can also update in plain language: "move sport to 20:00".
 
 - `days` are 0=Mon … 6=Sun; empty = every day.
 - Chat history for the agent is in memory (last few messages) and resets on restart.
-- llama3.2 is a small model; the agent asks it for strict JSON actions and builds the reply from what was
-  actually saved, so confirmations are always truthful. A bigger model (e.g. `qwen2.5:7b`) will understand
-  trickier phrasing — just change `OLLAMA_MODEL`.
+- The agent calls OpenRouter (default model `openai/gpt-4o-mini`, set via `OPENROUTER_MODEL`) for JSON actions and builds the
+  reply from what was actually saved, so confirmations are always truthful.

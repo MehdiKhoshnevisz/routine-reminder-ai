@@ -4,7 +4,7 @@ from collections import defaultdict, deque
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from ollama import AsyncClient
+from openai import AsyncOpenAI
 from pydantic import ValidationError
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -50,7 +50,21 @@ Examples:
 
 HISTORY_LEN = 6
 _history: dict[int, deque] = defaultdict(lambda: deque(maxlen=HISTORY_LEN))
-_client = AsyncClient(host=settings.OLLAMA_HOST)
+_client: AsyncOpenAI | None = None
+
+
+def _get_client() -> AsyncOpenAI:
+    """OpenRouter client (OpenAI-compatible). Created lazily so the app can start before the key is set."""
+    global _client
+    if _client is None:
+        _client = AsyncOpenAI(
+            api_key=settings.OPENROUTER_API_KEY,
+            base_url=settings.OPENROUTER_BASE_URL,
+            timeout=settings.OPENROUTER_TIMEOUT,
+            max_retries=settings.OPENROUTER_MAX_RETRIES,
+            default_headers={"X-Title": settings.APP_NAME},  # shows the app name in OpenRouter's dashboard
+        )
+    return _client
 
 
 async def chat(db: AsyncSession, user: User, message: str) -> str:
@@ -64,13 +78,13 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
     history = _history[user.id]
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
 
-    resp = await _client.chat(
-        model=settings.OLLAMA_MODEL,
+    resp = await _get_client().chat.completions.create(
+        model=settings.OPENROUTER_MODEL,
         messages=messages,
-        format=AgentOutput.model_json_schema(),
-        options={"temperature": 0},
+        response_format={"type": "json_object"},
+        temperature=0,
     )
-    raw = resp.message.content or "{}"
+    raw = resp.choices[0].message.content or "{}"
     try:
         out = AgentOutput.model_validate_json(raw)
     except ValidationError:

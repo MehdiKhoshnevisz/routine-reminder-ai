@@ -1,6 +1,7 @@
 import logging
 import re
 
+from openai import APITimeoutError, AuthenticationError, RateLimitError
 from telegram import (
     BotCommand,
     InlineKeyboardButton,
@@ -375,9 +376,18 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         user = await _user(db, update)
         try:
             reply = await agent.chat(db, user, update.message.text)
+        except RateLimitError:
+            log.warning("OpenRouter rate limited")
+            reply = "I'm getting too many requests right now. Please try again in a minute."
+        except APITimeoutError:
+            log.warning("OpenRouter request timed out")
+            reply = "That took too long to think about. Please try again."
+        except AuthenticationError:
+            log.error("OpenRouter auth failed, check OPENROUTER_API_KEY")
+            reply = "Sorry, I'm not set up correctly right now. Please try again later."
         except Exception:
             log.exception("agent failed")
-            reply = "Sorry, my brain (Ollama) isn't responding right now. Is `ollama serve` running?"
+            reply = "Sorry, my brain (OpenRouter) isn't responding right now. Please try again in a moment."
     await update.message.reply_text(reply, reply_markup=MAIN_MENU)
 
 
