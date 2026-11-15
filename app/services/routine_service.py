@@ -74,11 +74,11 @@ def format_routine_card(r: Routine, header: str) -> str:
     lines = [
         header,
         "",
-        f"🆔 شناسه: #{r.id}",
-        f"📌 عنوان: {r.title}",
-        f"⏰ ساعت: {r.time.strftime('%H:%M')}",
-        f"📅 روزها: {_days_text(r)}",
+        f"شناسه: #{r.id}",
+        f"عنوان: {r.title}",
+        f"ساعت: {r.time.strftime('%H:%M')}",
+        f"روزها: {_days_text(r)}",
     ]
     if not r.is_active:
-        lines.append("⏸ وضعیت: متوقف")
+        lines.append("وضعیت: متوقف")
     return "\n".join(lines)

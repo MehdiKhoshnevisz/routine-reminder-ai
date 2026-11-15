@@ -33,12 +33,12 @@ log = logging.getLogger(__name__)
 
 # ---------- keyboards ----------
 
-BTN_LIST = "📋 روتین‌های من"
-BTN_NEW = "➕ روتین جدید"
-BTN_UPDATE = "✏️ ویرایش روتین"
-BTN_DELETE = "🗑 حذف روتین"
-BTN_TZ = "🌍 منطقه زمانی"
-BTN_HELP = "❓ راهنما"
+BTN_LIST = "روتین‌های من"
+BTN_NEW = "روتین جدید"
+BTN_UPDATE = "ویرایش روتین"
+BTN_DELETE = "حذف روتین"
+BTN_TZ = "منطقه زمانی"
+BTN_HELP = "راهنما"
 
 MAIN_MENU = ReplyKeyboardMarkup(
     [
@@ -62,15 +62,16 @@ COMMANDS = [
 
 HELP = (
     "سلام! من ناصرم =)\n"
-    "پیگیر روتین‌های تو\n\n"
-    "یک همچین چیزی بهم بگو تا یادآوری روتینت رو انجام بدم:\n"
-    "• هر روز ساعت ۷:۱۰ مسواک بزنم\n"
-    "• روزهای کاری ساعت ۱۹ ورزش کنم\n"
-    "• ساعت ورزش رو از ۱۹ به ۲۰ تغییر بده\n\n"
-    "هر روتینی که تعریف کنی، سر وقت بهت یادآوری می‌کنم (لایک عه باس)\n\n"
-    "دستورها:\n"
+    "هر روز، کارایی که می‌خوای انجام بدی رو یادت می‌ندازم!\n\n"
+    "کافیه مثل یه دوست بهم بگی چی رو کِی بهت یادآوری کنم. مثلاً:\n\n"
+    "• هر روز ساعت پنج یادم بنداز کتاب بخونم.\n"
+    "• هر روز ساعت سه و نیم یادم بنداز ورزش کنم.\n"
+    "• روزهای کاری ساعت هفت شب یادم بنداز زبان بخونم.\n"
+    "• ساعت ورزش رو از هفت به هشت تغییر بده.\n\n"
+    "همین!\n\n"
+    "دستورها:\n\n"
     "/routines – دیدن روتین‌هات\n"
-    "/update – ویرایش ساعت، روزها یا عنوان روتین\n"
+    "/update – تغییر ساعت، روزها یا عنوان روتین\n"
     "/delete – حذف روتین\n"
     "/timezone – تنظیم منطقه زمانی\n"
     "/cancel – لغو عملیات فعلی"
@@ -80,14 +81,11 @@ HELP = (
 # Telegram allows max 512 chars for the description and 120 for the short description.
 DESCRIPTION = (
     "سلام! من ناصرم =)\n"
-    "پیگیر روتین‌های تو\n\n"
-    "روتین‌هات رو به زبان خودت بهم بگو، مثلاً:\n"
-    "• هر روز ساعت ۷:۱۰ مسواک بزنم\n"
-    "• روزهای کاری ساعت ۱۹ ورزش کنم\n\n"
-    "سر وقت بهت یادآوری می‌کنم ⏰\n"
-    "برای شروع، دکمه «شروع» رو بزن 👇"
+    "هر روز، کارایی که می‌خوای انجام بدی رو یادت می‌ندازم!\n"
+    "کافیه مثل یه دوست بهم بگی چی رو کِی بهت یادآوری کنم.\n"
+    "همین. شروع کن :)"
 )
-SHORT_DESCRIPTION = "ناصرم =) روتین‌هات رو بگو، سر وقت بهت یادآوری می‌کنم ⏰"
+SHORT_DESCRIPTION = "ناصرم =) روتین‌هات رو بگو، سر وقت بهت یادآوری می‌کنم"
 
 
 GROUP_HELP = (
@@ -107,8 +105,7 @@ GROUP_HELP = (
 
 
 def _help_text(user, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> str:
-    text = GROUP_HELP.format(username=ctx.bot.username) if _is_group(update) else HELP
-    return f"{text}\n\n🕒 منطقه زمانی فعلی: {user.timezone}"
+    return GROUP_HELP.format(username=ctx.bot.username) if _is_group(update) else HELP
 
 # Callback data (max 64 bytes):
 #   ls:<mode>          list routines as buttons (mode: edit|del)
@@ -128,43 +125,43 @@ def _routines_keyboard(routines, mode: str) -> InlineKeyboardMarkup:
     prefix = "r" if mode == "edit" else "d"
     rows = [
         [InlineKeyboardButton(
-            f"{r.time.strftime('%H:%M')} · {r.title}{' ⏸' if not r.is_active else ''}",
+            f"{r.time.strftime('%H:%M')} · {r.title}{' (متوقف)' if not r.is_active else ''}",
             callback_data=f"{prefix}:{r.id}",
         )]
         for r in routines
     ]
-    rows.append([InlineKeyboardButton("✖️ بستن", callback_data="x")])
+    rows.append([InlineKeyboardButton("بستن", callback_data="x")])
     return InlineKeyboardMarkup(rows)
 
 
 def _routine_menu(r) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([
         [
-            InlineKeyboardButton("⏰ ساعت", callback_data=f"e:{r.id}:time"),
-            InlineKeyboardButton("📅 روزها", callback_data=f"dp:{r.id}"),
-            InlineKeyboardButton("✏️ عنوان", callback_data=f"e:{r.id}:title"),
+            InlineKeyboardButton("ساعت", callback_data=f"e:{r.id}:time"),
+            InlineKeyboardButton("روزها", callback_data=f"dp:{r.id}"),
+            InlineKeyboardButton("عنوان", callback_data=f"e:{r.id}:title"),
         ],
         [
-            InlineKeyboardButton("▶️ ادامه" if not r.is_active else "⏸ توقف", callback_data=f"p:{r.id}"),
-            InlineKeyboardButton("🗑 حذف", callback_data=f"d:{r.id}"),
+            InlineKeyboardButton("ادامه" if not r.is_active else "توقف", callback_data=f"p:{r.id}"),
+            InlineKeyboardButton("حذف", callback_data=f"d:{r.id}"),
         ],
-        [InlineKeyboardButton("⬅️ بازگشت", callback_data="ls:edit")],
+        [InlineKeyboardButton("بازگشت", callback_data="ls:edit")],
     ])
 
 
 def _days_keyboard(routine_id: int, selected: set[int]) -> InlineKeyboardMarkup:
     day_btns = [
-        InlineKeyboardButton(f"{'✅' if d in selected else '▫️'} {DAY_NAMES[d]}", callback_data=f"dt:{routine_id}:{d}")
+        InlineKeyboardButton(f"{'●' if d in selected else '○'} {DAY_NAMES[d]}", callback_data=f"dt:{routine_id}:{d}")
         for d in DAY_ORDER
     ]
     return InlineKeyboardMarkup([
         day_btns[:4],
         day_btns[4:],
         [
-            InlineKeyboardButton("🔁 هر روز", callback_data=f"de:{routine_id}"),
-            InlineKeyboardButton("💾 ذخیره", callback_data=f"ds:{routine_id}"),
+            InlineKeyboardButton("هر روز", callback_data=f"de:{routine_id}"),
+            InlineKeyboardButton("ذخیره", callback_data=f"ds:{routine_id}"),
         ],
-        [InlineKeyboardButton("⬅️ بازگشت", callback_data=f"r:{routine_id}")],
+        [InlineKeyboardButton("بازگشت", callback_data=f"r:{routine_id}")],
     ])
 
 
@@ -276,10 +273,10 @@ async def routines_cmd(update: Update, _: ContextTypes.DEFAULT_TYPE):
     if not items:
         await update.message.reply_text("هنوز هیچ روتینی نداری.", reply_markup=_menu(update))
         return
-    text = "📋 روتین‌های شما:\n" + "\n".join(rs.format_routine(r) for r in items)
+    text = "روتین‌هات:\n" + "\n".join(rs.format_routine(r) for r in items)
     await update.message.reply_text(
         text,
-        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("✏️ ویرایش روتین", callback_data="ls:edit")]]),
+        reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("ویرایش روتین", callback_data="ls:edit")]]),
     )
 
 
@@ -321,7 +318,7 @@ async def timezone_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         async with SessionLocal() as db:
             user = await _user(db, update)
         await update.effective_message.reply_text(
-            f"🕒 منطقه زمانی فعلی تو: {user.timezone}\n\n"
+            f"منطقه زمانی فعلی تو: {user.timezone}\n\n"
             "من یادآوری‌ها رو بر اساس ساعت منطقه زمانی تو می‌فرستم. "
             "پس اگه درست تنظیم نشده باشه، یادآوری‌ها زودتر یا دیرتر میان.\n\n"
             "برای تغییرش، اسم منطقه‌ات رو به شکل Area/City بفرست، مثلاً:\n"
@@ -370,14 +367,14 @@ async def _set_timezone(update: Update, tz: str):
         except ValueError as e:
             await update.effective_message.reply_text(f"{e}\nمثلاً Asia/Tehran یا Europe/London رو امتحان کن.")
             return False
-    await update.effective_message.reply_text(f"🌍 منطقه زمانی روی {tz} تنظیم شد", reply_markup=_menu(update))
+    await update.effective_message.reply_text(f"اوکی، منطقه زمانی روی {tz} تنظیم شد :)", reply_markup=_menu(update))
     return True
 
 
 def _confirm_delete(routine_id: int) -> InlineKeyboardMarkup:
     return InlineKeyboardMarkup([[
-        InlineKeyboardButton("✅ بله، حذف کن", callback_data=f"dy:{routine_id}"),
-        InlineKeyboardButton("✖️ نه", callback_data="x"),
+        InlineKeyboardButton("آره، حذفش کن", callback_data=f"dy:{routine_id}"),
+        InlineKeyboardButton("نه", callback_data="x"),
     ]])
 
 
@@ -445,11 +442,11 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
                 days = set()
             r = await rs.update_routine(db, r, days=sorted(days))
             ctx.user_data.pop("days", None)
-            await q.edit_message_text(rs.format_routine_card(r, "✅ روتین به‌روزرسانی شد"), reply_markup=_routine_menu(r))
+            await q.edit_message_text(rs.format_routine_card(r, "آپدیت شد :)"), reply_markup=_routine_menu(r))
 
         elif action == "p":
             r = await rs.update_routine(db, r, is_active=not r.is_active)
-            state = "▶️ ادامه داده شد:" if r.is_active else "⏸ متوقف شد:"
+            state = "دوباره فعال شد :)" if r.is_active else "متوقف شد:"
             await q.edit_message_text(f"{state} {rs.format_routine(r)}", reply_markup=_routine_menu(r))
 
         elif action == "d":
@@ -458,7 +455,7 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         elif action == "dy":
             title = r.title
             await rs.delete_routine(db, r)
-            await q.edit_message_text(f"🗑 «{title}» حذف شد")
+            await q.edit_message_text(f"«{title}» حذف شد")
 
 
 # ---------- free text ----------
@@ -485,10 +482,10 @@ async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, await
             else:
                 r = await rs.update_routine(db, r, title=text[:200])
         except ValueError as e:
-            await update.message.reply_text(f"⚠️ {e} دوباره امتحان کن یا /cancel.")
+            await update.message.reply_text(f"{e} :( دوباره امتحان کن یا /cancel.")
             return
     ctx.user_data.pop("awaiting", None)
-    await update.message.reply_text(rs.format_routine_card(r, "✅ روتین به‌روزرسانی شد"), reply_markup=_routine_menu(r))
+    await update.message.reply_text(rs.format_routine_card(r, "آپدیت شد :)"), reply_markup=_routine_menu(r))
 
 
 async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
@@ -544,8 +541,16 @@ async def on_migrate(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # ---------- setup ----------
 
+# Labels of the previous (emoji) menu: users keep that keyboard until they get a new MAIN_MENU.
+_OLD_LABELS = {
+    BTN_LIST: "📋 روتین‌های من", BTN_NEW: "➕ روتین جدید", BTN_UPDATE: "✏️ ویرایش روتین",
+    BTN_DELETE: "🗑 حذف روتین", BTN_TZ: "🌍 منطقه زمانی", BTN_HELP: "❓ راهنما",
+}
+
+
 def _button(text: str):
-    return filters.TEXT & filters.Regex(f"^{re.escape(text)}$")
+    labels = [text] + ([_OLD_LABELS[text]] if text in _OLD_LABELS else [])
+    return filters.TEXT & filters.Regex("^(" + "|".join(re.escape(t) for t in labels) + ")$")
 
 
 def build_application() -> Application | None:

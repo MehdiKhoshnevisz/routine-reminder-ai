@@ -72,11 +72,11 @@ or use the buttons:
 
 | Button / command | |
 |---|---|
-| 📋 My routines · `/routines` | list routines |
-| ➕ New routine | type it in your own words, the AI creates it |
-| ✏️ Update routine · `/update` or `/update <id>` | pick a routine, then change ⏰ time, 📅 days (toggle buttons), ✏️ title, ⏸ pause/resume, 🗑 delete |
-| 🗑 Delete routine · `/delete` or `/delete <id>` | delete with confirmation |
-| 🌍 Timezone · `/timezone Europe/Berlin` | reminders are sent in your timezone |
+| My routines · `/routines` | list routines |
+| New routine | type it in your own words, the AI creates it |
+| Update routine · `/update` or `/update <id>` | pick a routine, then change time, days (toggle buttons), title, pause/resume, delete |
+| Delete routine · `/delete` or `/delete <id>` | delete with confirmation |
+| Timezone · `/timezone Europe/Berlin` | reminders are sent in your timezone |
 | `/cancel` | cancel a pending edit |
 
 You can also update in plain language: "move sport to 20:00".

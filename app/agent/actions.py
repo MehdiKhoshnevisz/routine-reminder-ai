@@ -1,6 +1,7 @@
 """Executes the structured actions produced by the LLM against the database."""
 
 import logging
+import re
 from typing import Literal
 
 from pydantic import BaseModel
@@ -31,56 +32,132 @@ def _norm(s: str) -> str:
     return " ".join(w.rstrip("s") for w in s.lower().replace("-", " ").split())
 
 
-def _find(routines: list[Routine], action: Action) -> Routine | None:
-    """Match by title first (small LLMs copy names reliably, ids not), then by id."""
+def _candidates(routines: list[Routine], action: Action) -> list[Routine]:
+    """Routines the action may refer to. Title first (LLMs copy names more reliably than ids);
+    routine_id narrows it down when several routines share the name."""
+    by_title: list[Routine] = []
     if action.title:
         t = _norm(action.title)
-        exact = [r for r in routines if _norm(r.title) == t]
-        partial = [r for r in routines if t in _norm(r.title) or _norm(r.title) in t]
-        if exact or partial:
-            return (exact or partial)[0]
+        by_title = [r for r in routines if _norm(r.title) == t] or [
+            r for r in routines if t in _norm(r.title) or _norm(r.title) in t
+        ]
     if action.routine_id is not None:
-        return next((r for r in routines if r.id == action.routine_id), None)
-    return None
+        by_id = [r for r in (by_title or routines) if r.id == action.routine_id]
+        if by_id:
+            return by_id
+    return by_title
 
 
-async def execute(db: AsyncSession, user_id: int, actions: list[Action]) -> list[str]:
-    """Returns a human readable line per action describing what really happened."""
+# Words that say whether "<existing routine> at <new time>" means change it or add another one.
+_CHANGE_WORDS = re.compile(r"عوض|تغییر|ببر|جابه?\s?جا|اصلاح|به\s?جای|کنش|رو کن|بشه|بکن|change|move")
+_HALF_ONLY = re.compile(r"صبح|ظهر|عصر|شب|بامداد")
+_ADD_WORDS = re.compile(r"اضافه|جدید|بساز|یکی دیگه|یه دونه دیگه|دوتا|دو تا|\bهم\b|ست کن|بذار|تنظیم|یادم بنداز|یادآوری|add|new")
+
+
+def _ask_change_or_add(routines: list[Routine], a: Action, message: str) -> str:
+    """'ورزش ساعت ۱۹' while ورزش exists at 07:00 could mean either; the model guesses inconsistently, so ask."""
+    if a.type not in ("create", "update") or not a.title or not a.time or not message:
+        return ""
+    if _CHANGE_WORDS.search(message) or _ADD_WORDS.search(message):
+        return ""
+    same = [r for r in routines if _norm(r.title) == _norm(a.title)]
+    new = parse_time(a.time)
+    if not same or any(r.time == new for r in same):
+        return ""
+    if _HALF_ONLY.search(message) and not re.search(r"[\d۰-۹]", message):
+        return ""  # "نه صبح" / "عصر": AM/PM correction of the routine just set
+    title, at = same[0].title, new.strftime("%H:%M")
+    now = "، ".join(r.time.strftime("%H:%M") for r in same)
+    return f"«{title}» الان ساعت {now} هست. ساعتش رو به {at} تغییر بدم، یا یه «{title}» جدید ساعت {at} هم اضافه کنم؟"
+
+
+_ALL_WORDS = re.compile(r"همه|هر\s?دو|دوتاش|همشون|همه‌شون|all|both")
+
+
+def _collapse_unasked_multi(actions: list[Action], message: str) -> list[Action]:
+    """Safety net: "ورزش رو حذف کن" with two ورزش routines must not delete both. Several
+    delete/update/pause/resume actions on the same name collapse to one without routine_id (-> "which one?")
+    unless the user said "all" / "both"."""
+    if _ALL_WORDS.search(message):
+        return actions
+    out: list[Action] = []
+    seen: dict[tuple[str, str], Action] = {}
+    for a in actions:
+        if a.type in ("delete", "update", "pause", "resume") and a.title:
+            key = (a.type, _norm(a.title))
+            if key in seen:
+                seen[key].routine_id = None
+                continue
+            seen[key] = a
+        out.append(a)
+    return out
+
+
+async def execute(db: AsyncSession, user_id: int, actions: list[Action], message: str = "") -> list[str]:
+    """Returns a human readable line per action describing what really happened (or a question)."""
+    actions = _collapse_unasked_multi(actions, message)
     results: list[str] = []
+    created: set[str] = set()
     for a in actions:
         routines = await rs.list_routines(db, user_id)
         try:
-            if a.type == "update" and a.title and a.time and not _find(routines, a):
+            if question := _ask_change_or_add(routines, a, message):
+                results.append(question)
+                continue
+            if a.type == "create" and a.title:
+                key = _norm(a.title)
+                if key in created:
+                    continue  # model split one activity into several routines
+                created.add(key)
+                same = next((r for r in routines if _norm(r.title) == key), None)
+                if same and a.time and same.time == parse_time(a.time):
+                    results.append(f"اینو از قبل داری :) {rs.format_routine(same)}")
+                    continue
+            if a.type == "update" and a.title and a.time and not _candidates(routines, a):
                 a.type = "create"  # model said "update" for a routine that doesn't exist yet
             if a.type == "create":
-                if not a.title or not a.time:
-                    results.append("⚠️ برای ساختن روتین، هم فعالیت و هم ساعت لازمه.")
+                if not a.title:
+                    when = f"ساعت {a.time} " if a.time else ""
+                    results.append(f"{when}چی رو یادت بندازم؟")
+                    continue
+                if not a.time:
+                    results.append(f"«{a.title.strip()}» رو چه ساعتی یادت بندازم؟")
                     continue
                 r = await rs.create_routine(
                     db, user_id, title=a.title.strip(), at=parse_time(a.time), days=parse_days(a.days)
                 )
-                results.append(f"✅ ساخته شد: {rs.format_routine(r)}")
+                results.append(f"ساخته شد :) {rs.format_routine(r)}")
             elif a.type == "list":
                 body = "\n".join(rs.format_routine(r) for r in routines) or "هنوز هیچ روتینی نداری."
-                results.append(f"📋 روتین‌های شما:\n{body}")
+                results.append(f"روتین‌هات:\n{body}")
             else:
-                r = _find(routines, a)
-                if not r:
-                    results.append(f"⚠️ روتین «{a.title or a.routine_id}» پیدا نشد.")
+                cands = _candidates(routines, a)
+                r = cands[0] if len(cands) == 1 else None
+                if not cands:
+                    name = a.title or f"#{a.routine_id}"
+                    if routines:
+                        names = "، ".join(f"«{x.title}»" for x in routines)
+                        results.append(f"روتینی به اسم «{name}» پیدا نکردم :/ روتین‌هات: {names}. منظورت کدومه؟")
+                    else:
+                        results.append("هنوز هیچ روتینی نداری. می‌خوای یکی بسازیم؟ مثلاً «ورزش ساعت ۱۹».")
+                elif len(cands) > 1:
+                    lines = "\n".join(f"• {rs.format_routine(x)}" for x in cands)
+                    results.append(f"چندتا روتین «{a.title}» داری، منظورت کدومه؟ (ساعت یا شماره‌اش رو بگو)\n{lines}")
                 elif a.type == "delete":
+                    label = rs.format_routine(r)
                     await rs.delete_routine(db, r)
-                    results.append(f"🗑 «{r.title}» حذف شد")
+                    results.append(f"حذف شد: {label}")
                 elif a.type in ("pause", "resume"):
                     r = await rs.update_routine(db, r, is_active=a.type == "resume")
-                    results.append(f"{'▶️' if r.is_active else '⏸'} {rs.format_routine(r)}")
+                    results.append(f"{'دوباره فعال شد :)' if r.is_active else 'متوقف شد:'} {rs.format_routine(r)}")
                 else:  # update
                     r = await rs.update_routine(
                         db, r,
                         time=parse_time(a.time) if a.time else None,
                         days=parse_days(a.days) if a.days else None,
                     )
-                    results.append(rs.format_routine_card(r, "✏️ روتین به‌روزرسانی شد"))
+                    results.append(rs.format_routine_card(r, "آپدیت شد :)"))
         except ValueError as e:
-            results.append(f"⚠️ {e}")
+            results.append(f"{e} :(")
         log.info("action %s -> %s", a.model_dump(exclude_none=True), results[-1])
     return results
