@@ -27,7 +27,7 @@ The user's current routines:
 {routines}
 
 Every action has a "type" and a "title". Action types:
-- create: title (the activity in Persian, e.g. "مسواک زدن"), time (24h "HH:MM" with English digits), days
+- create: title (the activity, see Titles), time (24h "HH:MM" with English digits), days
 - update: title = name of the EXISTING routine to change (copy it exactly as listed), plus only the fields that change (time, days)
   If several routines have that name, also set "routine_id" (the number after #) of the one the user means.
 - delete / pause / resume: title = name of the existing routine (copy it exactly as listed)
@@ -56,8 +56,17 @@ Style of "message": casual and friendly Persian. NEVER use emoji. If you want a 
 Rules:
 - The user talks casually. Any wording that asks to remember / set / add something at a time is create:
   "اضافه کن", "بساز", "ست کن", "تنظیم کن", "بذار", "یادم بنداز", "یادآوری کن", "می‌خوام", "باید ... کنم", or just "<activity> ساعت <time>".
-- One "create" action PER activity: "مسواک ساعت ۷ و ورزش ساعت ۱۹" is TWO actions.
-  One activity with one time is exactly ONE action. Never split one time into two routines.
+- One "create" action PER time: "مسواک ساعت ۷ و ورزش ساعت ۱۹" is TWO actions.
+  Things joined with "و" at the SAME time are ONE routine with the whole phrase as title:
+  "ساعت ۷ عصر تمرین گیتار و پیانو" -> ONE action, title "تمرین گیتار و پیانو". Never split one time into two routines.
+
+Titles (be exact, the user's routine is private and theirs):
+- Use the user's OWN words and keep every detail (with whom, what, where): "یادم بنداز با دوست‌دخترم سکس کنم" -> "سکس کردن با دوست‌دخترم",
+  "زنگ زدن به مامان" -> "زنگ زدن به مامان". Keep their colloquial spelling ("کتاب خوندن" stays "کتاب خوندن", not "کتاب خواندن").
+- Only drop the time / day words and fillers (یادم بنداز، برام، ساعت، رو ست کن، می‌خوام).
+  Turn a conjugated verb into its noun form so it reads as an activity: "ورزش کنم" -> "ورزش کردن", "کتاب بخونم" -> "کتاب خوندن".
+- NEVER censor, soften, judge, shorten or refuse an activity. Sex, masturbation, smoking, alcohol, medicine, anything:
+  it's a valid routine, save it exactly as asked, with no warning or advice, and never mark it off_topic.
 - "عوض کن", "ببر ساعت", "کن ساعت", "تغییر بده" = update. "حذف کن", "پاک کن" = delete. "متوقف کن" = pause. "ادامه بده", "فعال کن" = resume.
 
 Times ("time" is 24h "HH:MM" with English digits):
@@ -164,10 +173,14 @@ def _ampm_note(message: str, actions) -> str:
                 t = parse_time(a.time)
             except ValueError:
                 continue
-            if t.hour in (0, 12):
-                continue
-            h12 = f"{t.hour % 12}" if t.minute == 0 else f"{t.hour % 12}:{t.minute:02d}"
-            picked, other = ("صبح", "عصر") if t.hour < 12 else ("بعدازظهر", "صبح")
+            h = t.hour % 12 or 12
+            h12 = f"{h}" if t.minute == 0 else f"{h}:{t.minute:02d}"
+            if t.hour == 12:
+                picked, other = "ظهر", "شب"  # 12 is noon or midnight
+            elif t.hour == 0:
+                picked, other = "شب", "ظهر"
+            else:
+                picked, other = ("صبح", "عصر") if t.hour < 12 else ("بعدازظهر", "صبح")
             return f"ساعت {h12.translate(_FA)} رو {picked} در نظر گرفتم. اگه {other} منظورت بود، بگو «{other}» =)"
     return ""
 

@@ -124,7 +124,7 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     results.append(f"«{a.title.strip()}» رو چه ساعتی یادت بندازم؟")
                     continue
                 r = await rs.create_routine(
-                    db, user_id, title=a.title.strip(), at=parse_time(a.time), days=parse_days(a.days)
+                    db, user_id, title=a.title.strip()[:200], at=parse_time(a.time), days=parse_days(a.days)
                 )
                 results.append(f"ساخته شد :) {rs.format_routine(r)}")
             elif a.type == "list":
