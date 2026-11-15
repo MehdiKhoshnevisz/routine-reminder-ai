@@ -11,7 +11,7 @@ def validate_timezone(tz: str) -> str:
     try:
         ZoneInfo(tz)
     except (ZoneInfoNotFoundError, ValueError) as e:
-        raise ValueError(f"Unknown timezone: {tz}") from e
+        raise ValueError(f"منطقه زمانی ناشناخته: {tz}") from e
     return tz
 
 

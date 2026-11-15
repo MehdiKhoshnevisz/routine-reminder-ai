@@ -24,6 +24,7 @@ class Action(BaseModel):
 class AgentOutput(BaseModel):
     actions: list[Action] = []
     message: str = ""
+    off_topic: bool = False  # message has nothing to do with routines
 
 
 def _norm(s: str) -> str:
@@ -53,22 +54,22 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action]) -> list
                 a.type = "create"  # model said "update" for a routine that doesn't exist yet
             if a.type == "create":
                 if not a.title or not a.time:
-                    results.append("⚠️ I need both an activity and a time to create a routine.")
+                    results.append("⚠️ برای ساختن روتین، هم فعالیت و هم ساعت لازمه.")
                     continue
                 r = await rs.create_routine(
                     db, user_id, title=a.title.strip(), at=parse_time(a.time), days=parse_days(a.days)
                 )
-                results.append(f"✅ Created {rs.format_routine(r)}")
+                results.append(f"✅ ساخته شد: {rs.format_routine(r)}")
             elif a.type == "list":
-                body = "\n".join(rs.format_routine(r) for r in routines) or "You have no routines yet."
-                results.append(f"📋 Your routines:\n{body}")
+                body = "\n".join(rs.format_routine(r) for r in routines) or "هنوز هیچ روتینی نداری."
+                results.append(f"📋 روتین‌های شما:\n{body}")
             else:
                 r = _find(routines, a)
                 if not r:
-                    results.append(f"⚠️ Couldn't find the routine '{a.title or a.routine_id}'.")
+                    results.append(f"⚠️ روتین «{a.title or a.routine_id}» پیدا نشد.")
                 elif a.type == "delete":
                     await rs.delete_routine(db, r)
-                    results.append(f"🗑 Deleted '{r.title}'")
+                    results.append(f"🗑 «{r.title}» حذف شد")
                 elif a.type in ("pause", "resume"):
                     r = await rs.update_routine(db, r, is_active=a.type == "resume")
                     results.append(f"{'▶️' if r.is_active else '⏸'} {rs.format_routine(r)}")
@@ -78,7 +79,7 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action]) -> list
                         time=parse_time(a.time) if a.time else None,
                         days=parse_days(a.days) if a.days else None,
                     )
-                    results.append(f"✏️ Updated {rs.format_routine(r)}")
+                    results.append(rs.format_routine_card(r, "✏️ روتین به‌روزرسانی شد"))
         except ValueError as e:
             results.append(f"⚠️ {e}")
         log.info("action %s -> %s", a.model_dump(exclude_none=True), results[-1])

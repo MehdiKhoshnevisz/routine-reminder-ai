@@ -15,38 +15,59 @@ from app.services import routine_service as rs
 
 log = logging.getLogger(__name__)
 
-SYSTEM_PROMPT = """You are Routine AI. You turn the user's message into a JSON list of actions on their routines.
+SYSTEM_PROMPT = """You are Routine AI, a Persian-speaking assistant. You turn the user's message into a JSON list of actions on their routines.
+The user speaks Persian (Farsi). Always write "title" and "message" in Persian. Keep "type", "time" and "days" in the English format below.
 Now: {now} ({weekday}).
 
 The user's current routines:
 {routines}
 
 Every action has a "type" and a "title". Action types:
-- create: title (the activity, e.g. "Brush teeth"), time (24h "HH:MM"), days
-- update: title = name of the EXISTING routine to change, plus only the fields that change (time, days)
-- delete / pause / resume: title = name of the existing routine
+- create: title (the activity in Persian, e.g. "مسواک زدن"), time (24h "HH:MM" with English digits), days
+- update: title = name of the EXISTING routine to change (copy it exactly as listed), plus only the fields that change (time, days)
+- delete / pause / resume: title = name of the existing routine (copy it exactly as listed)
 - list: when the user wants to see their routines
 
 Rules:
-- "add", "create", "remind me", "I want to" = create. One "create" action PER activity:
-  "brush teeth at 7 and sport at 19" is TWO actions.
-- Copy times exactly. "6:30" -> "06:30", "19" -> "19:00", "10 7 o'clock" / "10 past 7" -> "07:10".
-  Only add 12 hours if the user says pm, evening, afternoon or night.
-- days: "" (every day) unless the user names days; then e.g. "monday,wednesday", "weekdays" or "weekends".
-- If the message is not about routines or is unclear, return no actions and put a short reply/question in "message".
+- "اضافه کن", "بساز", "یادم بنداز", "می‌خوام" = create. One "create" action PER activity:
+  "مسواک ساعت ۷ و ورزش ساعت ۱۹" is TWO actions.
+- "عوض کن", "ببر ساعت", "تغییر بده" = update. "حذف کن", "پاک کن" = delete. "متوقف کن" = pause. "ادامه بده", "فعال کن" = resume.
+- Copy times exactly and convert Persian digits: "۶:۳۰" -> "06:30", "۱۹" -> "19:00", "۷ و ده دقیقه" -> "07:10", "هفت و نیم" -> "07:30".
+  Only add 12 hours if the user says عصر, بعدازظهر, شب or pm (e.g. "۸ شب" -> "20:00"). "صبح" means AM.
+- days: "" (every day / "هر روز") unless the user names days. Use English day names, comma separated, e.g. "saturday,monday".
+  The Iranian week starts on Saturday. "روزهای کاری" / "وسط هفته" -> "saturday,sunday,monday,tuesday,wednesday".
+  "آخر هفته" -> "thursday,friday". شنبه=saturday, یکشنبه=sunday, دوشنبه=monday, سه‌شنبه=tuesday, چهارشنبه=wednesday, پنجشنبه=thursday, جمعه=friday.
+- If the message has NOTHING to do with routines (greetings, small talk, jokes, general questions, other topics),
+  return {{"actions":[],"message":"","off_topic":true}}. Do not answer it.
+- If the message IS about routines but is unclear (e.g. missing time), return no actions and put a short question in Persian in "message".
 
 Examples:
-"first brush teeth in 10 7 oclock and do sport in 19 oclock" ->
-{{"actions":[{{"type":"create","title":"Brush teeth","time":"07:10","days":""}},{{"type":"create","title":"Sport","time":"19:00","days":""}}],"message":""}}
-"add meditation at 6:30 on weekends" ->
-{{"actions":[{{"type":"create","title":"Meditation","time":"06:30","days":"weekends"}}],"message":""}}
-"move sport to 8pm" ->
-{{"actions":[{{"type":"update","title":"Sport","time":"20:00"}}],"message":""}}
-"remove the reading routine" ->
-{{"actions":[{{"type":"delete","title":"Reading"}}],"message":""}}
-"hi" ->
-{{"actions":[],"message":"Hi! Tell me a routine, e.g. 'sport at 19:00 every day'."}}
+"اول ساعت ۷ و ده دقیقه مسواک بزنم و ساعت ۱۹ ورزش کنم" ->
+{{"actions":[{{"type":"create","title":"مسواک زدن","time":"07:10","days":""}},{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
+"مدیتیشن ساعت ۶:۳۰ آخر هفته‌ها اضافه کن" ->
+{{"actions":[{{"type":"create","title":"مدیتیشن","time":"06:30","days":"thursday,friday"}}],"message":""}}
+"ورزش رو ببر ساعت ۸ شب" ->
+{{"actions":[{{"type":"update","title":"ورزش","time":"20:00"}}],"message":""}}
+"روتین کتاب خوندن رو حذف کن" ->
+{{"actions":[{{"type":"delete","title":"کتاب خوندن"}}],"message":""}}
+"سلام، خوبی؟" ->
+{{"actions":[],"message":"","off_topic":true}}
+"پایتخت فرانسه کجاست؟" ->
+{{"actions":[],"message":"","off_topic":true}}
+"یادم بنداز ورزش کنم" ->
+{{"actions":[],"message":"چه ساعتی یادت بندازم؟"}}
 """
+
+OFF_TOPIC_REPLY = (
+    "من فقط درباره روتین‌هات می‌تونم کمکت کنم 🙂\n"
+    "روتینت رو بگو، مثلاً «ورزش ساعت ۱۹ هر روز» یا «مسواک ساعت ۷:۱۰».\n\n"
+    "دستورها:\n"
+    "/routines - لیست روتین‌ها\n"
+    "/update - ویرایش روتین\n"
+    "/delete - حذف روتین\n"
+    "/timezone - تنظیم منطقه زمانی\n"
+    "/help - راهنما"
+)
 
 HISTORY_LEN = 6
 _history: dict[int, deque] = defaultdict(lambda: deque(maxlen=HISTORY_LEN))
@@ -73,7 +94,7 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
     system = SYSTEM_PROMPT.format(
         now=now.strftime("%Y-%m-%d %H:%M"),
         weekday=now.strftime("%A"),
-        routines="\n".join(rs.format_routine(r) for r in routines) or "(none)",
+        routines="\n".join(rs.format_routine(r) for r in routines) or "(هیچ)",
     )
     history = _history[user.id]
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
@@ -89,10 +110,13 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
         out = AgentOutput.model_validate_json(raw)
     except ValidationError:
         log.warning("Bad LLM output: %s", raw)
-        return "Sorry, I didn't get that. Try e.g. 'sport at 19:00 every day'."
+        return "متأسفم، متوجه نشدم. مثلاً بنویس «ورزش ساعت ۱۹ هر روز»."
+
+    if out.off_topic and not out.actions:
+        return OFF_TOPIC_REPLY  # not stored in history so small talk doesn't steer later replies
 
     results = await execute(db, user.id, out.actions)
-    reply = "\n".join(results) or out.message.strip() or "Tell me a routine, e.g. 'sport at 19:00'."
+    reply = "\n\n".join(results) or out.message.strip() or OFF_TOPIC_REPLY
 
     history.append({"role": "user", "content": message})
     history.append({"role": "assistant", "content": json.dumps(out.model_dump(exclude_none=True))})

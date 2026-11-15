@@ -5,7 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Routine
 
-DAY_NAMES = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"]
+# Indexed by Python weekday (0 = Monday). Displayed in Persian week order (Saturday first).
+DAY_NAMES = ["دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه", "یکشنبه"]
+DAY_ORDER = [5, 6, 0, 1, 2, 3, 4]
 
 
 async def list_routines(db: AsyncSession, user_id: int, only_active: bool = False) -> list[Routine]:
@@ -58,7 +60,25 @@ async def delete_routine(db: AsyncSession, routine: Routine) -> None:
     await db.commit()
 
 
+def _days_text(r: Routine) -> str:
+    return "هر روز" if not r.days else "، ".join(DAY_NAMES[d] for d in DAY_ORDER if d in r.days)
+
+
 def format_routine(r: Routine) -> str:
-    days = "every day" if not r.days else ", ".join(DAY_NAMES[d] for d in r.days)
-    status = "" if r.is_active else " (paused)"
-    return f"#{r.id} {r.time.strftime('%H:%M')} - {r.title} [{days}]{status}"
+    status = "" if r.is_active else " (متوقف)"
+    return f"#{r.id} {r.time.strftime('%H:%M')} - {r.title} [{_days_text(r)}]{status}"
+
+
+def format_routine_card(r: Routine, header: str) -> str:
+    """Multi-line version for confirmations, one field per line."""
+    lines = [
+        header,
+        "",
+        f"🆔 شناسه: #{r.id}",
+        f"📌 عنوان: {r.title}",
+        f"⏰ ساعت: {r.time.strftime('%H:%M')}",
+        f"📅 روزها: {_days_text(r)}",
+    ]
+    if not r.is_active:
+        lines.append("⏸ وضعیت: متوقف")
+    return "\n".join(lines)

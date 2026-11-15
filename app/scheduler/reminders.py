@@ -16,6 +16,33 @@ from app.models import Routine, User
 log = logging.getLogger(__name__)
 
 
+_FA_DIGITS = str.maketrans("0123456789", "۰۱۲۳۴۵۶۷۸۹")
+
+
+def _fa_time(t) -> str:
+    """07:00 -> '۷', 07:10 -> '۷:۱۰'."""
+    s = str(t.hour) if t.minute == 0 else f"{t.hour}:{t.minute:02d}"
+    return s.translate(_FA_DIGITS)
+
+
+def _is_suffix(title: str) -> str:
+    """Persian 'is' ending: ورزش -> ورزشه, مطالعه -> مطالعه‌ست, یوگا -> یوگاست."""
+    title = title.strip()
+    if title.endswith("ه"):
+        return f"{title}‌ست"
+    if title.endswith(("ا", "و")):
+        return f"{title}ست"
+    return f"{title}ه"
+
+
+def reminder_text(routine: Routine) -> str:
+    return (
+        f"ساعت {_fa_time(routine.time)} شد\n"
+        f"وقت {_is_suffix(routine.title)}\n\n"
+        "این یکی از برنامه های امروزته پس ادامه بدههه :))"
+    )
+
+
 def is_due(routine: Routine, now_local: datetime) -> bool:
     if routine.last_reminded_on == now_local.date():
         return False
@@ -39,7 +66,7 @@ async def check_and_send(bot: Bot) -> None:
             now_local = datetime.now(ZoneInfo(routine.user.timezone))
             if not is_due(routine, now_local):
                 continue
-            text = f"⏰ Reminder: {routine.title} ({routine.time.strftime('%H:%M')})"
+            text = reminder_text(routine)
             if routine.description:
                 text += f"\n{routine.description}"
             try:

@@ -11,26 +11,32 @@ _DAY_ALIASES = {
     "fri": 4, "friday": 4,
     "sat": 5, "saturday": 5,
     "sun": 6, "sunday": 6,
+    # Persian
+    "دوشنبه": 0, "سه‌شنبه": 1, "سهشنبه": 1, "چهارشنبه": 2,
+    "پنجشنبه": 3, "پنج‌شنبه": 3, "جمعه": 4, "شنبه": 5, "یکشنبه": 6, "یک‌شنبه": 6,
 }
+
+# Persian / Arabic-Indic digits -> ASCII, so "۷:۳۰" parses like "7:30".
+_DIGITS = str.maketrans("۰۱۲۳۴۵۶۷۸۹٠١٢٣٤٥٦٧٨٩", "01234567890123456789")
 
 
 def parse_time(value) -> time:
     """Accepts '07:10', '7:10', '19', '7pm', '7:30 PM', '1900'."""
-    s = str(value).strip().lower().replace(".", ":")
+    s = str(value).translate(_DIGITS).strip().lower().replace(".", ":").replace("٫", ":")
     m = re.fullmatch(r"(\d{1,2})(?::?(\d{2}))?\s*(am|pm)?", s)
     if not m:
-        raise ValueError(f"Could not understand time '{value}'. Use HH:MM (24h).")
+        raise ValueError(f"ساعت «{value}» رو متوجه نشدم. به شکل HH:MM (۲۴ ساعته) بنویس.")
     hour, minute, ampm = int(m.group(1)), int(m.group(2) or 0), m.group(3)
     if ampm == "pm" and hour < 12:
         hour += 12
     if ampm == "am" and hour == 12:
         hour = 0
     if not (0 <= hour <= 23 and 0 <= minute <= 59):
-        raise ValueError(f"Invalid time '{value}'.")
+        raise ValueError(f"ساعت «{value}» نامعتبره.")
     return time(hour, minute)
 
 
-_FILLER = {"on", "and", "every", "each", "the", "at", "in", "&", "only"}
+_FILLER = {"on", "and", "every", "each", "the", "at", "in", "&", "only", "و", "هر", "ها", "روز", "روزهای"}
 
 
 def _day(word: str) -> int | None:
@@ -49,7 +55,9 @@ def parse_days(value) -> list[int]:
     if value in (None, "", [], "null"):
         return []
     items = value if isinstance(value, list) else [value]
-    joined = " ".join(str(i).lower() for i in items).replace(",", " ").strip()
+    joined = " ".join(str(i).lower() for i in items).replace(",", " ").replace("،", " ").strip()
+    # Join multi-word Persian day names ("سه شنبه" -> "سه‌شنبه") so they split as one word.
+    joined = re.sub(r"(سه|پنج|یک)\s+شنبه", "\\1\u200cشنبه", joined).replace("\u200cها", "")
     if re.fullmatch(r"(every\s*day|everyday|daily|all|all days|any)", joined):
         return []
     if "weekday" in joined:
@@ -69,5 +77,5 @@ def parse_days(value) -> list[int]:
         elif (d := _day(word)) is not None:
             days.add(d)
         else:
-            raise ValueError(f"Unknown day '{word}'.")
+            raise ValueError(f"روز «{word}» ناشناخته‌ست.")
     return sorted(days)
