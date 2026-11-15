@@ -101,7 +101,7 @@ Examples:
 {{"actions":[],"message":"سلام! خوبم مرسی :) بگو چه روتینی رو برات یادآوری کنم؟"}}
 "ساعت ۷ یادم بنداز" ->
 {{"actions":[],"message":"ساعت ۷ چی رو یادت بندازم؟"}}
-(routines: "#4 07:00 - ورزش", "#9 19:00 - ورزش"; you asked which one to delete) "اونی که عصره" ->
+(routines: "#4 ورزش - هر روز - ساعت 07:00", "#9 ورزش - هر روز - ساعت 19:00"; you asked which one to delete) "اونی که عصره" ->
 {{"actions":[{{"type":"delete","title":"ورزش","routine_id":9}}],"message":""}}
 (you asked "ورزش رو چه ساعتی یادت بندازم؟") "۷ عصر" ->
 {{"actions":[{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
@@ -120,12 +120,7 @@ Examples:
 OFF_TOPIC_REPLY = (
     "من فقط درباره روتین‌هات می‌تونم کمکت کنم :)\n"
     "روتینت رو بگو، مثلاً «ورزش ساعت ۱۹ هر روز» یا «مسواک ساعت ۷:۱۰».\n\n"
-    "دستورها:\n"
-    "/routines - لیست روتین‌ها\n"
-    "/update - ویرایش روتین\n"
-    "/delete - حذف روتین\n"
-    "/timezone - تنظیم منطقه زمانی\n"
-    "/help - راهنما"
+    "برای دیدن، تغییر یا حذف روتین‌هات هم از دکمه‌های پایین استفاده کن."
 )
 
 HISTORY_LEN = 6  # messages kept (stored in the DB, see AgentHistory)

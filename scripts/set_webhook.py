@@ -1,4 +1,4 @@
-"""Points the Telegram bot at the deployed webhook and registers the command menu.
+"""Points the Telegram bot at the deployed webhook, removes the "/" command menu and sets the description.
 
 Usage:  .venv/bin/python -m scripts.set_webhook https://your-app.vercel.app
 Reads TELEGRAM_BOT_TOKEN and TELEGRAM_WEBHOOK_SECRET from .env (must match the values set on Vercel).
@@ -10,7 +10,7 @@ import sys
 
 from telegram import Bot
 
-from app.bot.telegram_bot import COMMANDS, DESCRIPTION, SHORT_DESCRIPTION
+from app.bot.telegram_bot import DESCRIPTION, SHORT_DESCRIPTION
 from app.core.config import settings
 
 
@@ -25,7 +25,7 @@ async def main(base_url: str) -> None:
             allowed_updates=["message", "callback_query"],
             drop_pending_updates=True,
         )
-        await bot.set_my_commands(COMMANDS)
+        await bot.delete_my_commands()  # keyboard-driven bot: no "/" menu
         await bot.set_my_description(DESCRIPTION)
         await bot.set_my_short_description(SHORT_DESCRIPTION)
         info = await bot.get_webhook_info()

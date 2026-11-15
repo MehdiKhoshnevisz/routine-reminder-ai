@@ -40,6 +40,11 @@ async def save_agent_history(db: AsyncSession, user_id: int, messages: list[dict
     await db.commit()
 
 
+async def delete_agent_history(db: AsyncSession, user_id: int) -> None:
+    await db.execute(delete(AgentHistory).where(AgentHistory.user_id == user_id))
+    await db.commit()
+
+
 async def delete_stale_agent_histories(db: AsyncSession) -> int:
     result = await db.execute(delete(AgentHistory).where(AgentHistory.updated_at < _history_cutoff()))
     await db.commit()

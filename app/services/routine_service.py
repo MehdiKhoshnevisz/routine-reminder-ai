@@ -1,6 +1,6 @@
 from datetime import time
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Routine
@@ -60,13 +60,24 @@ async def delete_routine(db: AsyncSession, routine: Routine) -> None:
     await db.commit()
 
 
+async def delete_all_routines(db: AsyncSession, user_id: int) -> int:
+    result = await db.execute(delete(Routine).where(Routine.user_id == user_id))
+    await db.commit()
+    return result.rowcount
+
+
 def _days_text(r: Routine) -> str:
     return "هر روز" if not r.days else "، ".join(DAY_NAMES[d] for d in DAY_ORDER if d in r.days)
 
 
+# Left-to-right mark around "#12": in Persian (RTL) text Telegram would otherwise show it as "12#".
+LRM = "\u200e"
+
+
 def format_routine(r: Routine) -> str:
     status = "" if r.is_active else " (متوقف)"
-    return f"#{r.id} {r.time.strftime('%H:%M')} - {r.title} [{_days_text(r)}]{status}"
+    # number first, then title and days, time last after "ساعت": reads right in RTL text
+    return f"{LRM}#{r.id}{LRM} {r.title} - {_days_text(r)} - ساعت {r.time.strftime('%H:%M')}{status}"
 
 
 def format_routine_card(r: Routine, header: str) -> str:
@@ -74,7 +85,7 @@ def format_routine_card(r: Routine, header: str) -> str:
     lines = [
         header,
         "",
-        f"شناسه: #{r.id}",
+        f"شناسه: {LRM}#{r.id}{LRM}",
         f"عنوان: {r.title}",
         f"ساعت: {r.time.strftime('%H:%M')}",
         f"روزها: {_days_text(r)}",
