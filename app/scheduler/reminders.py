@@ -78,6 +78,12 @@ async def check_and_send(bot: Bot) -> None:
         await db.commit()
 
 
+async def run_once() -> None:
+    """One reminder check with its own Bot instance (serverless cron endpoint)."""
+    async with Bot(settings.TELEGRAM_BOT_TOKEN) as bot:
+        await check_and_send(bot)
+
+
 async def reminder_loop(bot: Bot) -> None:
     log.info("Reminder loop started (every %ss)", settings.REMINDER_CHECK_SECONDS)
     while True:

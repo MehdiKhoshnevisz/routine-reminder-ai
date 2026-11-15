@@ -25,7 +25,7 @@ from app.agent.parsing import parse_time
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import routine_service as rs
-from app.services import user_service
+from app.services import state_service, user_service
 from app.services.routine_service import DAY_NAMES, DAY_ORDER
 
 log = logging.getLogger(__name__)
@@ -337,19 +337,20 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             await q.edit_message_text(prompt)
 
         elif action == "dp":
-            ctx.user_data["days"] = set(r.days or [])
+            # user_data is stored as JSON in webhook mode, so keep lists (not sets) in it
+            ctx.user_data["days"] = sorted(r.days or [])
             await q.edit_message_text(
                 f"روزهای «{r.title}» رو انتخاب کن (هیچ‌کدوم = هر روز):",
-                reply_markup=_days_keyboard(r.id, ctx.user_data["days"]),
+                reply_markup=_days_keyboard(r.id, set(ctx.user_data["days"])),
             )
 
         elif action == "dt":
-            days: set[int] = ctx.user_data.setdefault("days", set(r.days or []))
-            days.symmetric_difference_update({int(rest[1])})
+            days = set(ctx.user_data.get("days", r.days or [])) ^ {int(rest[1])}
+            ctx.user_data["days"] = sorted(days)
             await q.edit_message_reply_markup(_days_keyboard(r.id, days))
 
         elif action in ("de", "ds"):
-            days = set() if action == "de" else ctx.user_data.get("days", set(r.days or []))
+            days = set() if action == "de" else set(ctx.user_data.get("days", r.days or []))
             if days == set(range(7)):
                 days = set()
             r = await rs.update_routine(db, r, days=sorted(days))
@@ -472,3 +473,24 @@ async def setup_bot_commands(app: Application) -> None:
         await app.bot.set_my_short_description(SHORT_DESCRIPTION)
     except Exception:
         log.exception("Could not set bot description")
+
+
+async def process_webhook_update(data: dict) -> None:
+    """Handles one update pushed by Telegram (serverless mode).
+
+    A fresh Application per request: serverless instances may switch event loops between requests,
+    and the bot's HTTP client is bound to the loop. The user's `user_data` is loaded from / saved to the DB.
+    """
+    app = build_application()
+    if not app:
+        return
+    async with app:  # initialize() / shutdown()
+        update = Update.de_json(data, app.bot)
+        tg_user = update.effective_user
+        if tg_user:
+            async with SessionLocal() as db:
+                app.user_data[tg_user.id].update(await state_service.get_telegram_state(db, tg_user.id))
+        await app.process_update(update)
+        if tg_user:
+            async with SessionLocal() as db:
+                await state_service.save_telegram_state(db, tg_user.id, dict(app.user_data[tg_user.id]))

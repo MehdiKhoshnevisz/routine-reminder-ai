@@ -1,4 +1,7 @@
+import os
 from functools import lru_cache
+
+from pydantic import field_validator
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -21,6 +24,28 @@ class Settings(BaseSettings):
     REMINDER_CHECK_SECONDS: int = 30
     # A reminder is still sent if the app was down/busy for up to this many minutes after the routine time.
     REMINDER_GRACE_MINUTES: int = 5
+
+    # "polling" = long-running process (local dev, uvicorn).
+    # "webhook" = serverless (Vercel): Telegram POSTs updates to /api/telegram/webhook and an
+    #             external cron calls /api/cron/reminders every minute. Defaults to webhook on Vercel.
+    TELEGRAM_MODE: str = "webhook" if os.getenv("VERCEL") else "polling"
+    # Telegram sends this back in the X-Telegram-Bot-Api-Secret-Token header; requests without it are rejected.
+    TELEGRAM_WEBHOOK_SECRET: str = ""
+    # /api/cron/reminders requires "Authorization: Bearer <CRON_SECRET>".
+    CRON_SECRET: str = ""
+
+    @property
+    def serverless(self) -> bool:
+        return self.TELEGRAM_MODE == "webhook"
+
+    @field_validator("DATABASE_URL")
+    @classmethod
+    def _async_driver(cls, v: str) -> str:
+        """Hosted providers (Neon, Supabase, ...) hand out postgres:// URLs; we need the psycopg async driver."""
+        for prefix in ("postgres://", "postgresql://"):
+            if v.startswith(prefix):
+                return "postgresql+psycopg://" + v[len(prefix):]
+        return v
 
 
 @lru_cache

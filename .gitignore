@@ -32,3 +32,5 @@ pgdata/
 .vscode/
 .idea/
 .DS_Store
+.vercel
+.env*

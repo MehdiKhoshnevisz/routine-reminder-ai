@@ -1,6 +1,6 @@
+import asyncio
 import json
 import logging
-from collections import defaultdict, deque
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
@@ -12,6 +12,7 @@ from app.agent.actions import AgentOutput, execute
 from app.core.config import settings
 from app.models import User
 from app.services import routine_service as rs
+from app.services import state_service
 
 log = logging.getLogger(__name__)
 
@@ -69,15 +70,18 @@ OFF_TOPIC_REPLY = (
     "/help - راهنما"
 )
 
-HISTORY_LEN = 6
-_history: dict[int, deque] = defaultdict(lambda: deque(maxlen=HISTORY_LEN))
+HISTORY_LEN = 6  # messages kept (stored in the DB, see AgentHistory)
 _client: AsyncOpenAI | None = None
+_client_loop: asyncio.AbstractEventLoop | None = None
 
 
 def _get_client() -> AsyncOpenAI:
-    """OpenRouter client (OpenAI-compatible). Created lazily so the app can start before the key is set."""
-    global _client
-    if _client is None:
+    """OpenRouter client (OpenAI-compatible). Created lazily so the app can start before the key is set,
+    and re-created if the event loop changed (serverless runtimes may use a new loop per request)."""
+    global _client, _client_loop
+    loop = asyncio.get_running_loop()
+    if _client is None or _client_loop is not loop:
+        _client_loop = loop
         _client = AsyncOpenAI(
             api_key=settings.OPENROUTER_API_KEY,
             base_url=settings.OPENROUTER_BASE_URL,
@@ -96,7 +100,7 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
         weekday=now.strftime("%A"),
         routines="\n".join(rs.format_routine(r) for r in routines) or "(هیچ)",
     )
-    history = _history[user.id]
+    history = await state_service.get_agent_history(db, user.id)
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
 
     resp = await _get_client().chat.completions.create(
@@ -118,6 +122,9 @@ async def chat(db: AsyncSession, user: User, message: str) -> str:
     results = await execute(db, user.id, out.actions)
     reply = "\n\n".join(results) or out.message.strip() or OFF_TOPIC_REPLY
 
-    history.append({"role": "user", "content": message})
-    history.append({"role": "assistant", "content": json.dumps(out.model_dump(exclude_none=True))})
+    history += [
+        {"role": "user", "content": message},
+        {"role": "assistant", "content": json.dumps(out.model_dump(exclude_none=True), ensure_ascii=False)},
+    ]
+    await state_service.save_agent_history(db, user.id, history[-HISTORY_LEN:])
     return reply

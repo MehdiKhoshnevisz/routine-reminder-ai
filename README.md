@@ -33,6 +33,28 @@ API docs: http://localhost:8000/docs
 
 Tables are created automatically on startup (add Alembic later when the schema starts changing).
 
+## Deploy (Vercel)
+
+On Vercel the app runs serverless (`TELEGRAM_MODE=webhook`, automatic when `VERCEL` is set):
+
+- Telegram **pushes** updates to `POST /api/telegram/webhook` (checked against `TELEGRAM_WEBHOOK_SECRET`).
+- Reminders: something must call `GET /api/cron/reminders` **every minute** with
+  `Authorization: Bearer <CRON_SECRET>`, e.g. a free [cron-job.org](https://cron-job.org) job
+  (Vercel Cron on the Hobby plan only runs once a day).
+- Bot edit state and agent history are stored in Postgres (`telegram_states`, `agent_histories`).
+
+Steps:
+
+1. Hosted Postgres (e.g. Neon): set `DATABASE_URL` on Vercel. `postgres://` URLs are converted automatically;
+   prefer the pooled URL.
+2. Env vars on Vercel: `DATABASE_URL`, `TELEGRAM_BOT_TOKEN`, `OPENROUTER_API_KEY`, `OPENROUTER_MODEL`,
+   `DEFAULT_TIMEZONE`, `TELEGRAM_WEBHOOK_SECRET`, `CRON_SECRET`.
+3. `vercel deploy --prod`
+4. `.venv/bin/python -m scripts.set_webhook https://<your-app>.vercel.app` (uses the same secret from `.env`).
+5. Create the per-minute cron job.
+
+Running locally in polling mode removes the webhook. Re-run step 4 afterwards.
+
 ## API
 
 | Method | Path | |
@@ -62,6 +84,6 @@ You can also update in plain language: "move sport to 20:00".
 ## Notes
 
 - `days` are 0=Mon … 6=Sun; empty = every day.
-- Chat history for the agent is in memory (last few messages) and resets on restart.
+- Chat history for the agent (last few messages) is stored in the `agent_histories` table.
 - The agent calls OpenRouter (default model `openai/gpt-4o-mini`, set via `OPENROUTER_MODEL`) for JSON actions and builds the
   reply from what was actually saved, so confirmations are always truthful.

@@ -5,6 +5,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.api.serverless import router as serverless_router
 from app.api.v1.router import api_router
 from app.bot.telegram_bot import build_application, setup_bot_commands
 from app.core.config import settings
@@ -17,6 +18,12 @@ logging.getLogger("httpx").setLevel(logging.WARNING)
 
 @asynccontextmanager
 async def lifespan(_: FastAPI):
+    if settings.serverless:
+        # Webhook mode: no long-running tasks. Updates arrive at /api/telegram/webhook,
+        # reminders are triggered by /api/cron/reminders, tables are created on first request.
+        yield
+        return
+
     await init_db()
 
     tg_app = build_application()
@@ -42,6 +49,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=settings.APP_NAME, lifespan=lifespan)
 app.include_router(api_router)
+app.include_router(serverless_router)
 
 
 @app.get("/health", tags=["health"])
