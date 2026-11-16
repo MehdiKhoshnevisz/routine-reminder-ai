@@ -76,8 +76,8 @@ LRM = "\u200e"
 
 def format_routine(r: Routine) -> str:
     status = "" if r.is_active else " (متوقف)"
-    # number first, then title and days, time last after "ساعت": reads right in RTL text
-    return f"{LRM}#{r.id}{LRM} {r.title} - {_days_text(r)} - ساعت {r.time.strftime('%H:%M')}{status}"
+    # first title and days, time last after "ساعت": reads right in RTL text
+    return f"{r.title} - {_days_text(r)} - ساعت {r.time.strftime('%H:%M')}{status}"
 
 
 def format_routine_card(r: Routine, header: str) -> str:
