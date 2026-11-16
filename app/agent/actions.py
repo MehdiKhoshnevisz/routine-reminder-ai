@@ -128,8 +128,8 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                 )
                 results.append(f"ساخته شد :) {rs.format_routine(r)}")
             elif a.type == "list":
-                body = "\n".join(rs.format_routine(r) for r in routines) or "هنوز هیچ روتینی نداری."
-                results.append(f"روتین‌هات:\n{body}")
+                body = "\n".join(rs.format_routine(r) for r in routines) or "هنوز هیچ کاری نداری."
+                results.append(f"کار‌هات:\n{body}")
             else:
                 cands = _candidates(routines, a)
                 r = cands[0] if len(cands) == 1 else None
@@ -137,12 +137,12 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     name = a.title or f"#{a.routine_id}"
                     if routines:
                         names = "، ".join(f"«{x.title}»" for x in routines)
-                        results.append(f"روتینی به اسم «{name}» پیدا نکردم :/ روتین‌هات: {names}. منظورت کدومه؟")
+                        results.append(f"کاری به اسم «{name}» پیدا نکردم :/ کار‌هات: {names}. منظورت کدومه؟")
                     else:
-                        results.append("هنوز هیچ روتینی نداری. می‌خوای یکی بسازیم؟ مثلاً «ورزش ساعت ۱۹».")
+                        results.append("هنوز هیچ کاری نداری. می‌خوای یکی بسازیم؟ مثلاً «ورزش ساعت ۱۹».")
                 elif len(cands) > 1:
                     lines = "\n".join(f"• {rs.format_routine(x)}" for x in cands)
-                    results.append(f"چندتا روتین «{a.title}» داری، منظورت کدومه؟ (ساعت یا شماره‌اش رو بگو)\n{lines}")
+                    results.append(f"چندتا کار «{a.title}» داری، منظورت کدومه؟ (ساعت یا شماره‌اش رو بگو)\n{lines}")
                 elif a.type == "delete":
                     label = rs.format_routine(r)
                     await rs.delete_routine(db, r)

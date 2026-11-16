@@ -33,8 +33,8 @@ log = logging.getLogger(__name__)
 
 # ---------- keyboards ----------
 
-BTN_LIST = "روتین‌های من"
-BTN_NEW = "روتین جدید"
+BTN_LIST = "کار‌های من"
+BTN_NEW = "کار جدید"
 BTN_SUPPORT = "پشتیبانی"
 BTN_DONATE = "کمک"
 BTN_TZ = "منطقه زمانی"
@@ -53,7 +53,7 @@ MAIN_MENU = ReplyKeyboardMarkup(
 
 # Groups get no bottom keyboard (it would pop up for every member), so their menu is inline.
 GROUP_MENU = InlineKeyboardMarkup([
-    [InlineKeyboardButton("روتین‌های گروه", callback_data="m:list")],
+    [InlineKeyboardButton("کار‌های گروه", callback_data="m:list")],
     [InlineKeyboardButton("منطقه زمانی", callback_data="m:tz"), InlineKeyboardButton("پاک کردن همه", callback_data="m:reset")],
     [InlineKeyboardButton("پشتیبانی", callback_data="m:support"), InlineKeyboardButton("کمک", callback_data="m:donate")],
 ])
@@ -97,7 +97,7 @@ HELP = (
     "• روزهای کاری ساعت هفت شب یادم بنداز زبان بخونم.\n"
     "• ساعت ورزش رو از هفت به هشت تغییر بده.\n\n"
     "همین!\n\n"
-    "برای دیدن، تغییر یا حذف روتین‌هات هم از دکمه‌های پایین استفاده کن :)"
+    "برای دیدن، تغییر یا حذف کار‌هات هم از دکمه‌های پایین استفاده کن :)"
 )
 
 
@@ -108,14 +108,14 @@ DESCRIPTION = (
     "کافیه مثل یه دوست بهم بگی چی رو کِی بهت یادآوری کنم.\n"
     "همین. شروع کن :)"
 )
-SHORT_DESCRIPTION = "ناصرم =) روتین‌هات رو بگو، سر وقت بهت یادآوری می‌کنم"
+SHORT_DESCRIPTION = "ناصرم =) کار‌هات رو بگو، سر وقت بهت یادآوری می‌کنم"
 
 
 GROUP_HELP = (
     "سلام! من ناصرم =)\n"
-    "روتین‌های این گروه رو سر وقت توی همین گروه یادآوری می‌کنم.\n\n"
-    "فقط ادمین‌های گروه می‌تونن روتین بسازن یا تغییر بدن.\n"
-    "برای ساختن روتین منو منشن کن یا روی پیامم ریپلای کن، مثلاً:\n"
+    "کار‌های این گروه رو سر وقت توی همین گروه یادآوری می‌کنم.\n\n"
+    "فقط ادمین‌های گروه می‌تونن کار بسازن یا تغییر بدن.\n"
+    "برای ساختن کار منو منشن کن یا روی پیامم ریپلای کن، مثلاً:\n"
     "• @{username} جلسه ساعت ۱۰ روزهای کاری\n"
     "• @{username} ورزش گروهی ساعت ۱۹ آخر هفته‌ها\n\n"
     "بقیه‌ی کارها هم با دکمه‌های زیر :)"
@@ -139,7 +139,7 @@ def _help_text(user, update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> str:
 #   x                  close
 
 
-LIST_TITLE = "روتین‌هات :)\nروی هر کدوم بزن تا ببینی، ویرایشش کنی یا حذفش کنی."
+LIST_TITLE = "کار‌هات :)\nروی هر کدوم بزن تا ببینی، ویرایشش کنی یا حذفش کنی."
 
 
 def _routines_keyboard(routines, mode: str = "edit") -> InlineKeyboardMarkup:
@@ -241,7 +241,7 @@ async def _is_admin(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> bool:
     return member.status in (ChatMemberStatus.ADMINISTRATOR, ChatMemberStatus.OWNER)
 
 
-NOT_ADMIN = "توی گروه فقط ادمین‌ها می‌تونن روتین‌ها رو بسازن یا تغییر بدن."
+NOT_ADMIN = "توی گروه فقط ادمین‌ها می‌تونن کار‌ها رو بسازن یا تغییر بدن."
 
 
 def admin_only(handler):
@@ -281,7 +281,7 @@ async def _show_routine(update: Update, routine_id: int) -> None:
         user = await _user(db, update)
         r = await rs.get_routine(db, user.id, routine_id)
     if not r:
-        await update.effective_message.reply_text(f"روتین {rs.LRM}#{routine_id}{rs.LRM} رو پیدا نکردم :/ از «روتین‌های من» لیستشون رو ببین.")
+        await update.effective_message.reply_text(f"کار {rs.LRM}#{routine_id}{rs.LRM} رو پیدا نکردم :/ از «کار‌های من» لیستشون رو ببین.")
         return
     await update.effective_message.reply_text(_routine_text(r), reply_markup=_routine_menu(r))
 
@@ -305,7 +305,7 @@ async def routines_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         items = await rs.list_routines(db, user.id)
     if not items:
         await update.effective_message.reply_text(
-            "هنوز هیچ روتینی نداری. یکی بهم بگو، مثلاً «ورزش ساعت ۱۹» :)", reply_markup=_menu(update)
+            "هنوز هیچ کاری نداری. یکی بهم بگو، مثلاً «ورزش ساعت ۱۹» :)", reply_markup=_menu(update)
         )
         return
     await update.effective_message.reply_text(LIST_TITLE, reply_markup=_routines_keyboard(items))
@@ -344,7 +344,7 @@ async def help_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 async def new_routine_btn(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.pop("awaiting", None)
     await update.message.reply_text(
-        "روتینت رو با زبان خودت بگو، مثلاً:\n"
+        "کارت رو با زبان خودت بگو، مثلاً:\n"
         "• مسواک ساعت ۷:۱۰ و ورزش ساعت ۱۹\n"
         "• کتاب خوندن ساعت ۲۲ آخر هفته‌ها"
     )
@@ -420,22 +420,22 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
             n = await rs.delete_all_routines(db, user.id)
             await state_service.delete_agent_history(db, user.id)
             ctx.user_data.clear()
-            await q.edit_message_text(f"همه چی پاک شد ({n} روتین). از اول شروع کنیم :)")
+            await q.edit_message_text(f"همه چی پاک شد ({n} کار). از اول شروع کنیم :)")
             return
 
         if action == "ls":
             routines = await rs.list_routines(db, user.id)
             if not routines:
-                await q.edit_message_text("هنوز هیچ روتینی نداری.")
+                await q.edit_message_text("هنوز هیچ کاری نداری.")
                 return
             mode = rest[0]
-            title = LIST_TITLE if mode == "edit" else "کدوم روتین رو می‌خوای حذف کنی؟"
+            title = LIST_TITLE if mode == "edit" else "کدوم کار رو می‌خوای حذف کنی؟"
             await q.edit_message_text(title, reply_markup=_routines_keyboard(routines, mode))
             return
 
         r = await rs.get_routine(db, user.id, int(rest[0]))
         if not r:
-            await q.edit_message_text("این روتین دیگه وجود نداره.")
+            await q.edit_message_text("این کار دیگه وجود نداره.")
             return
 
         if action == "r":
@@ -503,7 +503,7 @@ async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, await
         r = await rs.get_routine(db, user.id, awaiting["routine_id"])
         if not r:
             ctx.user_data.pop("awaiting", None)
-            await update.message.reply_text("این روتین دیگه وجود نداره.")
+            await update.message.reply_text("این کار دیگه وجود نداره.")
             return
         try:
             if field == "time":
@@ -577,7 +577,7 @@ async def donate_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 @admin_only
 async def reset_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     ctx.user_data.pop("awaiting", None)
-    who = "همه‌ی روتین‌های این گروه" if _is_group(update) else "همه‌ی روتین‌هات"
+    who = "همه‌ی کار‌های این گروه" if _is_group(update) else "همه‌ی کار‌هات"
     await update.effective_message.reply_text(
         f"مطمئنی؟ {who} و تاریخچه‌ی گفتگو پاک می‌شه و دیگه برنمی‌گرده :(",
         reply_markup=InlineKeyboardMarkup([[
@@ -609,9 +609,9 @@ async def on_migrate(update: Update, _: ContextTypes.DEFAULT_TYPE):
 
 # Labels of the previous (emoji) menu: users keep that keyboard until they get a new MAIN_MENU.
 _OLD_LABELS = {
-    BTN_LIST: "📋 روتین‌های من", BTN_NEW: "➕ روتین جدید", BTN_TZ: "🌍 منطقه زمانی", BTN_HELP: "❓ راهنما",
+    BTN_LIST: "📋 کار‌های من", BTN_NEW: "➕ کار جدید", BTN_TZ: "🌍 منطقه زمانی", BTN_HELP: "❓ راهنما",
 }
-_REMOVED_LABELS = ("ویرایش روتین", "✏️ ویرایش روتین", "حذف روتین", "🗑 حذف روتین")
+_REMOVED_LABELS = ("ویرایش کار", "✏️ ویرایش کار", "حذف کار", "🗑 حذف کار")
 
 
 def _button(*texts: str):
