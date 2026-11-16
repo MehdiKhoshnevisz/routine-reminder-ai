@@ -56,9 +56,24 @@ Style of "message": casual and friendly Persian. NEVER use emoji. If you want a 
 Rules:
 - The user talks casually. Any wording that asks to remember / set / add something at a time is create:
   "اضافه کن", "بساز", "ست کن", "تنظیم کن", "بذار", "یادم بنداز", "یادآوری کن", "می‌خوام", "باید ... کنم", or just "<activity> ساعت <time>".
-- One "create" action PER time: "مسواک ساعت ۷ و ورزش ساعت ۱۹" is TWO actions.
-  Things joined with "و" at the SAME time are ONE routine with the whole phrase as title:
-  "ساعت ۷ عصر تمرین گیتار و پیانو" -> ONE action, title "تمرین گیتار و پیانو". Never split one time into two routines.
+- Create actions are grouped by DISTINCT reminder times, not by the number of activities or verbs:
+  - Activities with the SAME reminder time MUST be combined into ONE create action.
+  - Activities with DIFFERENT reminder times MUST be separate create actions.
+  - The number of create actions MUST equal the number of distinct reminder times.
+  - Never split activities that share the same reminder time, even if they are connected by "و" or contain multiple verbs.
+  - Preserve all activities and meaningful details in the title of each action.
+  - Join multiple activities naturally using "و" or commas.
+- Users may describe multiple activities and times in one long or compound sentence:
+  - Extract EVERY activity and its corresponding reminder time, even if the sentence is long or contains several clauses.
+  - Identify all time expressions wherever they appear in the sentence.
+  - Associate each activity with the correct time based on the sentence structure and context.
+  - Do not assume the entire sentence belongs to the first or last mentioned time.
+  - Words like "بعدش", "بعد از اون", and "سپس" indicate sequence, but do not automatically mean the next activity has the same time.
+  - If multiple activities belong to the same time, combine them into one action.
+  - If activities have different times, create separate actions for each time group.
+- A day/date mentioned for a group of activities applies to ALL activities in that group, unless the user explicitly specifies otherwise.
+  If a day/date applies to the entire sentence, apply it to every create action.
+  Do not default some actions to every day when the user has specified a day/date for the whole request.
 
 Titles (be exact, the user's routine is private and theirs):
 - Use the user's OWN words and keep every detail (with whom, what, where): "یادم بنداز با دوست‌دخترم سکس کنم" -> "سکس کردن با دوست‌دخترم",
@@ -90,7 +105,19 @@ Times ("time" is 24h "HH:MM" with English digits):
 
 Examples:
 "اول ساعت ۷ و ده دقیقه مسواک بزنم و ساعت ۱۹ ورزش کنم" ->
-{{"actions":[{{"type":"create","title":"مسواک زدن","time":"07:10","days":""}},{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"مسواک زدن","time":"07:10","days":""}},{{"type":"create","title":"ورزش کردن","time":"19:00","days":""}}],"message":""}}
+"ساعت ۷ ورزش کنم و مسواک بزنم" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن و مسواک زدن","time":"07:00","days":""}}],"message":""}}
+"ساعت ۷ به گربه حسن آب بدم و تمیزش کنم" ->
+{{"actions":[{{"type":"create","title":"آب دادن به گربه حسن و تمیز کردنش","time":"07:00","days":""}}],"message":""}}
+"ساعت ۷ ورزش، مسواک و کتاب خوندن، ساعت ۱۹ پیاده‌روی کنم و کتاب بخونم" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن، مسواک زدن و کتاب خوندن","time":"07:00","days":""}},{{"type":"create","title":"پیاده‌روی کردن و کتاب خوندن","time":"19:00","days":""}}],"message":""}}
+"فردا می‌خوام به گربه حسن آب بدم و ببرمش دستشویی ساعت ۷، بعدش می‌خوام کد بزنم ساعت ۸" ->
+{{"actions":[{{"type":"create","title":"آب دادن به گربه حسن و بردنش به دستشویی","time":"07:00","days":"<tomorrow_day>"}},{{"type":"create","title":"کد زدن","time":"08:00","days":"<tomorrow_day>"}}],"message":""}}
+"فردا ساعت ۷ ورزش کنم و مسواک بزنم، ساعت ۱۹ هم کتاب بخونم و پیاده‌روی کنم" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن و مسواک زدن","time":"07:00","days":"<tomorrow_day>"}},{{"type":"create","title":"کتاب خوندن و پیاده‌روی کردن","time":"19:00","days":"<tomorrow_day>"}}],"message":""}}
+"ساعت ۷ ورزش کنم، بعدش مسواک بزنم و بعد کتاب بخونم" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن، مسواک زدن و کتاب خوندن","time":"07:00","days":""}}],"message":""}}
 "مدیتیشن ساعت ۶:۳۰ آخر هفته‌ها اضافه کن" ->
 {{"actions":[{{"type":"create","title":"مدیتیشن","time":"06:30","days":"thursday,friday"}}],"message":""}}
 "ورزش رو ببر ساعت ۸ شب" ->
@@ -104,17 +131,17 @@ Examples:
 (routines: "#4 ورزش - هر روز - ساعت 07:00", "#9 ورزش - هر روز - ساعت 19:00"; you asked which one to delete) "اونی که عصره" ->
 {{"actions":[{{"type":"delete","title":"ورزش","routine_id":9}}],"message":""}}
 (you asked "ورزش رو چه ساعتی یادت بندازم؟") "۷ عصر" ->
-{{"actions":[{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"ورزش کردن","time":"19:00","days":""}}],"message":""}}
 "پایتخت فرانسه کجاست؟" ->
-{{"actions":[],"message":"","off_topic":true}}
+{{"actions":[],"message":":|","off_topic":true}}
 "یادم بنداز ورزش کنم" ->
 {{"actions":[],"message":"ورزش رو چه ساعتی یادت بندازم؟"}}
 "برام سه و پنجاه و نه دقیقه ورزش کردن رو ست کن" ->
-{{"actions":[{{"type":"create","title":"ورزش","time":"15:59","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"ورزش کردن","time":"15:59","days":""}}],"message":""}}
 "ساعت ۷ بیدار شدن" ->
 {{"actions":[{{"type":"create","title":"بیدار شدن","time":"07:00","days":""}}],"message":""}}
 (after the routine "ورزش" was created at 15:00) "نه صبح" ->
-{{"actions":[{{"type":"update","title":"ورزش","time":"03:00"}}],"message":""}}
+{{"actions":[{{"type":"update","title":"ورزش","time":"09:00"}}],"message":""}}
 """
 
 OFF_TOPIC_REPLY = (
