@@ -41,7 +41,6 @@ def reminder_text(routine: Routine) -> str:
     return (
         f"ساعت {_fa_time(routine.time)} شد\n"
         f"وقت {_is_suffix(routine.title)}\n\n"
-        "این یکی از برنامه های امروزته پس ادامه بدههه :))"
     )
 
 
