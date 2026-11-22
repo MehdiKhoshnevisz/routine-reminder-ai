@@ -26,7 +26,7 @@ from app.agent.parsing import parse_time
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import routine_service as rs
-from app.services import state_service, user_service, stt_service
+from app.services import state_service, user_service, stt_offline_service as stt_service
 from app.services.routine_service import DAY_NAMES, DAY_ORDER
 
 log = logging.getLogger(__name__)
@@ -599,18 +599,12 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("متأسفم، نتونستم پیام صوتی رو دانلود کنم. لطفاً دوباره امتحان کن.")
         return
 
-    # Transcribe
+    # Transcribe (offline Vosk - no API key needed)
     await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
-    text, err = await stt_service.transcribe_voice(audio_bytes, filename=voice.file_unique_id + ".ogg")
+    text = await stt_service.transcribe_voice_offline(audio_bytes)
 
     if not text:
-        if err == "credits":
-            await msg.reply_text(
-                "قابلیت پیام صوتی فعلاً غیرفعاله چون OpenRouter برای پردازش صدا حداقل $0.50 اعتبار لازم داره.\n"
-                "لطفاً اعتبار اضافه کن یا پیام متنی بفرست :)"
-            )
-        else:
-            await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
+        await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
         return
 
     # Confirm what we heard

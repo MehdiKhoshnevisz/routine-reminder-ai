@@ -7,3 +7,7 @@ pydantic-settings>=2.6
 openai>=1.50
 python-telegram-bot>=21.6
 tzdata
+jdatetime>=6.1
+vosk>=0.3.45
+soundfile>=0.12
+numpy>=1.26
