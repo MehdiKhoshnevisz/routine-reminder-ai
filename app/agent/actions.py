@@ -124,46 +124,43 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     results.append(f"«{a.title.strip()}» رو چه ساعتی یادت بندازم؟")
                     continue
 
-                # Parse days - handle special "once" marker ([-1])
+                # Parse days - default to TODAY only (single day) unless user explicitly says "هر روز" / "every day"
                 parsed_days = parse_days(a.days)
-                is_once = parsed_days == [-1]
+                wants_every_day = parsed_days == []  # empty = user said "every day" or LLM defaulted to it
 
-                # Also check message for "فردا" (tomorrow) or "امروز" (today) as fallback
+                # Also check message for "فردا" (tomorrow) or "امروز" (today)
                 msg_lower = message.lower()
                 wants_tomorrow = "فردا" in msg_lower or "farda" in msg_lower
                 wants_today = "امروز" in msg_lower or "emrooz" in msg_lower
 
-                if is_once or wants_tomorrow or wants_today:
-                    # For one-time or specific day routines, calculate the target day
-                    from app.models import User
-                    from datetime import datetime, timedelta
-                    from zoneinfo import ZoneInfo
-                    user = await db.get(User, user_id)
-                    if user:
-                        now = datetime.now(ZoneInfo(user.timezone))
-                        if wants_tomorrow:
-                            target_day = (now + timedelta(days=1)).weekday()  # 0=Monday
-                            parsed_days = [target_day]
-                        elif wants_today:
-                            parsed_days = [now.weekday()]
-                        elif is_once:
-                            # Default to today if time hasn't passed, else tomorrow
-                            routine_time = parse_time(a.time)
-                            today_at_time = now.replace(hour=routine_time.hour, minute=routine_time.minute, second=0, microsecond=0)
-                            if now > today_at_time:
-                                target_day = (now + timedelta(days=1)).weekday()
-                            else:
-                                target_day = now.weekday()
-                            parsed_days = [target_day]
+                # Default: single day (today or tomorrow based on time)
+                from app.models import User
+                from datetime import datetime, timedelta
+                from zoneinfo import ZoneInfo
+                user = await db.get(User, user_id)
+                if user:
+                    now = datetime.now(ZoneInfo(user.timezone))
+                    if wants_tomorrow:
+                        target_day = (now + timedelta(days=1)).weekday()
+                        parsed_days = [target_day]
+                    elif wants_today or wants_every_day:
+                        parsed_days = [now.weekday()]
                     else:
-                        parsed_days = []  # fallback to every day
+                        # Default: today if time hasn't passed, else tomorrow
+                        routine_time = parse_time(a.time)
+                        today_at_time = now.replace(hour=routine_time.hour, minute=routine_time.minute, second=0, microsecond=0)
+                        if now > today_at_time:
+                            target_day = (now + timedelta(days=1)).weekday()
+                        else:
+                            target_day = now.weekday()
+                        parsed_days = [target_day]
+                else:
+                    parsed_days = [0]  # fallback to Monday
 
                 r = await rs.create_routine(
                     db, user_id, title=a.title.strip()[:200], at=parse_time(a.time), days=parsed_days
                 )
                 msg = f"ساخته شد :) \n {rs.format_routine(r)}"
-                if is_once or wants_tomorrow or wants_today:
-                    msg += "\n\n⚠️ این کار فقط برای یک باره تنظیم شده. بعد از اجرا یادت باشه پاکش کنی (از منوی «کار‌های من»)."
                 results.append(msg)
             elif a.type == "list":
                 body = "\n".join(rs.format_routine(r) for r in routines) or "هنوز هیچ کاری نداری."

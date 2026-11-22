@@ -81,12 +81,13 @@ Times ("time" is 24h "HH:MM" with English digits):
   (waking up, breakfast, morning prayer -> AM; dinner, sleep -> PM; otherwise 1-6 -> PM, 7-11 -> AM).
 - If the previous turn created or updated a routine and the user now only answers "صبح", "عصر", "شب", "نه صبح", "منظورم شب بود", ...,
   UPDATE that routine's time to the same hour in the other half of the day.
-- days: "" (every day / "هر روز") unless the user names days. Use English day names, comma separated, e.g. "saturday,monday".
+- days: **DEFAULT = SINGLE DAY (today or tomorrow based on time)**. Use "every" ONLY if user explicitly says "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم".
   The Iranian week starts on Saturday. "روزهای کاری" / "وسط هفته" -> "saturday,sunday,monday,tuesday,wednesday".
   "آخر هفته" -> "thursday,friday". شنبه=saturday, یکشنبه=sunday, دوشنبه=monday, سه‌شنبه=tuesday, چهارشنبه=wednesday, پنجشنبه=thursday, جمعه=friday.
-  - "فقط یک بار" / "فقط این بار" / "تنها یک بار" / "یک‌بار" / "یک بار" -> "once" (one-time routine)
+  - "فقط یک بار" / "فقط این بار" / "تنها یک بار" / "یک‌بار" / "یک بار" -> single day (today/tomorrow)
   - "فردا" (tomorrow) -> **USE THE WEEKDAY PROVIDED ABOVE**: if {weekday} is "Sunday", tomorrow is "monday"; if "Monday" -> "tuesday", etc.
   - "امروز" (today) -> **USE THE WEEKDAY PROVIDED ABOVE**: e.g. if {weekday} is "Sunday", use "sunday"
+  - "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم" -> "every" (recurring daily)
 - If the message has NOTHING to do with routines (greetings, small talk, jokes, general questions, other topics),
   return {{"actions":[],"message":"","off_topic":true}}. Do not answer it.
 - If the message IS about routines but is unclear (e.g. missing time), return no actions and put a short question in Persian in "message".
