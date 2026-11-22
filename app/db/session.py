@@ -12,10 +12,13 @@ if settings.serverless:
     # so don't keep pooled connections around (use the provider's pooled URL, e.g. Neon "-pooler").
     # prepare_threshold=None: server-side prepared statements break behind PgBouncer-style poolers.
     engine = create_async_engine(
-        settings.DATABASE_URL, poolclass=NullPool, connect_args={"prepare_threshold": None}
+        settings.DATABASE_URL,
+        poolclass=NullPool,
+        connect_args={"prepare_threshold": None, "timeout": 10,}
     )
 else:
     engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
+    
 SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
 
 _db_ready = False
