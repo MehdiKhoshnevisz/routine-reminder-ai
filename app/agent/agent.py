@@ -67,7 +67,7 @@ Titles (be exact, the user's routine is private and theirs):
   Turn a conjugated verb into its noun form so it reads as an activity: "ورزش کنم" -> "ورزش کردن", "کتاب بخونم" -> "کتاب خوندن".
 - NEVER censor, soften, judge, shorten or refuse an activity. Sex, masturbation, smoking, alcohol, medicine, anything:
   it's a valid routine, save it exactly as asked, with no warning or advice, and never mark it off_topic.
-- "عوض کن", "ببر ساعت", "کن ساعت", "تغییر بده" = update. "حذف کن", "پاک کن" = delete. "متوقف کن" = pause. "ادامه بده", "فعال کن" = resume.
+- "عوض کن", "ببر ساعت", "کن ساعت", "تغییر بده" = update. "حذف کن", "پاک کن", "نمی‌خوام", "نمیخوام", "نیاز ندارم", "حذفش کن", "پاکش کن" = delete. "متوقف کن" = pause. "ادامه بده", "فعال کن" = resume.
 
 Times ("time" is 24h "HH:MM" with English digits):
 - Persian digits: "۶:۳۰" -> 06:30, "۱۹" -> 19:00, "15:00" -> 15:00.
