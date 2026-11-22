@@ -81,20 +81,20 @@ Times ("time" is 24h "HH:MM" with English digits):
   (waking up, breakfast, morning prayer -> AM; dinner, sleep -> PM; otherwise 1-6 -> PM, 7-11 -> AM).
 - If the previous turn created or updated a routine and the user now only answers "صبح", "عصر", "شب", "نه صبح", "منظورم شب بود", ...,
   UPDATE that routine's time to the same hour in the other half of the day.
-- days: **DEFAULT = SINGLE DAY (today or tomorrow based on time)**. Use "every" ONLY if user explicitly says "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم".
+- days: **DEFAULT = SINGLE DAY (today or tomorrow based on time)** — output NOTHING for days (omit the key or use "").
   The Iranian week starts on Saturday. "روزهای کاری" / "وسط هفته" -> "saturday,sunday,monday,tuesday,wednesday".
   "آخر هفته" -> "thursday,friday". شنبه=saturday, یکشنبه=sunday, دوشنبه=monday, سه‌شنبه=tuesday, چهارشنبه=wednesday, پنجشنبه=thursday, جمعه=friday.
   - "فقط یک بار" / "فقط این بار" / "تنها یک بار" / "یک‌بار" / "یک بار" -> single day (today/tomorrow)
   - "فردا" (tomorrow) -> **USE THE WEEKDAY PROVIDED ABOVE**: if {weekday} is "Sunday", tomorrow is "monday"; if "Monday" -> "tuesday", etc.
   - "امروز" (today) -> **USE THE WEEKDAY PROVIDED ABOVE**: e.g. if {weekday} is "Sunday", use "sunday"
-  - "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم" -> "every" (recurring daily)
+  - "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم" / "همیشه" -> "every" (MUST output days: "every" for recurring daily)
 - If the message has NOTHING to do with routines (greetings, small talk, jokes, general questions, other topics),
   return {{"actions":[],"message":"","off_topic":true}}. Do not answer it.
 - If the message IS about routines but is unclear (e.g. missing time), return no actions and put a short question in Persian in "message".
 
 Examples:
 "اول ساعت ۷ و ده دقیقه مسواک بزنم و ساعت ۱۹ ورزش کنم" ->
-{{"actions":[{{"type":"create","title":"مسواک زدن","time":"07:10","days":""}},{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"مسواک زدن","time":"07:10"}},{{"type":"create","title":"ورزش","time":"19:00"}}],"message":""}}
 "مدیتیشن ساعت ۶:۳۰ آخر هفته‌ها اضافه کن" ->
 {{"actions":[{{"type":"create","title":"مدیتیشن","time":"06:30","days":"thursday,friday"}}],"message":""}}
 "ورزش رو ببر ساعت ۸ شب" ->
@@ -108,21 +108,21 @@ Examples:
 (routines: "#4 ورزش - هر روز - ساعت 07:00", "#9 ورزش - هر روز - ساعت 19:00"; you asked which one to delete) "اونی که عصره" ->
 {{"actions":[{{"type":"delete","title":"ورزش","routine_id":9}}],"message":""}}
 (you asked "ورزش رو چه ساعتی یادت بندازم؟") "۷ عصر" ->
-{{"actions":[{{"type":"create","title":"ورزش","time":"19:00","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"ورزش","time":"19:00"}}],"message":""}}
 "پایتخت فرانسه کجاست؟" ->
 {{"actions":[],"message":"","off_topic":true}}
 "یادم بنداز ورزش کنم" ->
 {{"actions":[],"message":"ورزش رو چه ساعتی یادت بندازم؟"}}
 "برام سه و پنجاه و نه دقیقه ورزش کردن رو ست کن" ->
-{{"actions":[{{"type":"create","title":"ورزش","time":"15:59","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"ورزش","time":"15:59"}}],"message":""}}
 "ساعت ۷ بیدار شدن" ->
-{{"actions":[{{"type":"create","title":"بیدار شدن","time":"07:00","days":""}}],"message":""}}
+{{"actions":[{{"type":"create","title":"بیدار شدن","time":"07:00"}}],"message":""}}
 (if today is Sunday) "فردا ساعت ۱۸ یادم بنداز تماس بگیرم" ->
 {{"actions":[{{"type":"create","title":"تماس گرفتن","time":"18:00","days":"monday"}}],"message":""}}
+(if today is Sunday) "هر روز ساعت ۷ صبح یادم بنداز ورزش کنم" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن","time":"07:00","days":"every"}}],"message":""}}
 "ساعت ۲۰ فقط یک بار یادم بنداز دارو بخورم" ->
-{{"actions":[{{"type":"create","title":"دارو خوردن","time":"20:00","days":"once"}}],"message":""}}
-"فقط این بار ساعت ۱۴:۳۰ یادم بنداز 報告 بدهم" ->
-{{"actions":[{{"type":"create","title":"گزارش دادن","time":"14:30","days":"once"}}],"message":""}}
+{{"actions":[{{"type":"create","title":"دارو خوردن","time":"20:00"}}],"message":""}}
 (after the routine "ورزش" was created at 15:00) "نه صبح" ->
 {{"actions":[{{"type":"update","title":"ورزش","time":"03:00"}}],"message":""}}
 """

@@ -124,9 +124,9 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     results.append(f"«{a.title.strip()}» رو چه ساعتی یادت بندازم؟")
                     continue
 
-                # Parse days - default to TODAY only (single day) unless user explicitly says "هر روز" / "every day"
+                # Parse days - default to TODAY only (single day) unless user explicitly says "every" for recurring daily
                 parsed_days = parse_days(a.days)
-                wants_every_day = parsed_days == []  # empty = user said "every day" or LLM defaulted to it
+                wants_every_day = parsed_days == []  # empty = LLM output "every" for recurring
 
                 # Also check message for "فردا" (tomorrow) or "امروز" (today)
                 msg_lower = message.lower()
@@ -134,6 +134,7 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                 wants_today = "امروز" in msg_lower or "emrooz" in msg_lower
 
                 # Default: single day (today or tomorrow based on time)
+                # Only use recurring ([]) if LLM explicitly said "every"
                 from app.models import User
                 from datetime import datetime, timedelta
                 from zoneinfo import ZoneInfo
@@ -143,8 +144,11 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     if wants_tomorrow:
                         target_day = (now + timedelta(days=1)).weekday()
                         parsed_days = [target_day]
-                    elif wants_today or wants_every_day:
+                    elif wants_today:
                         parsed_days = [now.weekday()]
+                    elif wants_every_day:
+                        # User explicitly said "هر روز" / "every" -> recurring daily
+                        parsed_days = []
                     else:
                         # Default: today if time hasn't passed, else tomorrow
                         routine_time = parse_time(a.time)
