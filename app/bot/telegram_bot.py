@@ -596,11 +596,11 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         audio_bytes = bytes(audio_bytes)
     except Exception:
         log.exception("Failed to download voice message")
-        await msg.reply_text("متأسفم، نتونستم voices رو دانلود کنم. لطفاً دوباره امتحان کن.")
+        await msg.reply_text("متأسفم، نتونستم پیام صوتی رو دانلود کنم. لطفاً دوباره امتحان کن.")
         return
 
     # Transcribe
-    await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.RECORD_AUDIO)
+    await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
     text = await stt_service.transcribe_voice(audio_bytes, filename=voice.file_unique_id + ".ogg")
 
     if not text:
