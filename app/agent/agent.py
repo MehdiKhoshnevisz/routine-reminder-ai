@@ -84,6 +84,9 @@ Times ("time" is 24h "HH:MM" with English digits):
 - days: "" (every day / "هر روز") unless the user names days. Use English day names, comma separated, e.g. "saturday,monday".
   The Iranian week starts on Saturday. "روزهای کاری" / "وسط هفته" -> "saturday,sunday,monday,tuesday,wednesday".
   "آخر هفته" -> "thursday,friday". شنبه=saturday, یکشنبه=sunday, دوشنبه=monday, سه‌شنبه=tuesday, چهارشنبه=wednesday, پنجشنبه=thursday, جمعه=friday.
+  - "فقط یک بار" / "فقط این بار" / "تنها یک بار" / "یک‌بار" / "یک بار" -> "once" (one-time routine)
+  - "فردا" (tomorrow) -> **USE THE WEEKDAY PROVIDED ABOVE**: if {weekday} is "Sunday", tomorrow is "monday"; if "Monday" -> "tuesday", etc.
+  - "امروز" (today) -> **USE THE WEEKDAY PROVIDED ABOVE**: e.g. if {weekday} is "Sunday", use "sunday"
 - If the message has NOTHING to do with routines (greetings, small talk, jokes, general questions, other topics),
   return {{"actions":[],"message":"","off_topic":true}}. Do not answer it.
 - If the message IS about routines but is unclear (e.g. missing time), return no actions and put a short question in Persian in "message".
@@ -113,6 +116,12 @@ Examples:
 {{"actions":[{{"type":"create","title":"ورزش","time":"15:59","days":""}}],"message":""}}
 "ساعت ۷ بیدار شدن" ->
 {{"actions":[{{"type":"create","title":"بیدار شدن","time":"07:00","days":""}}],"message":""}}
+(if today is Sunday) "فردا ساعت ۱۸ یادم بنداز تماس بگیرم" ->
+{{"actions":[{{"type":"create","title":"تماس گرفتن","time":"18:00","days":"monday"}}],"message":""}}
+"ساعت ۲۰ فقط یک بار یادم بنداز دارو بخورم" ->
+{{"actions":[{{"type":"create","title":"دارو خوردن","time":"20:00","days":"once"}}],"message":""}}
+"فقط این بار ساعت ۱۴:۳۰ یادم بنداز 報告 بدهم" ->
+{{"actions":[{{"type":"create","title":"گزارش دادن","time":"14:30","days":"once"}}],"message":""}}
 (after the routine "ورزش" was created at 15:00) "نه صبح" ->
 {{"actions":[{{"type":"update","title":"ورزش","time":"03:00"}}],"message":""}}
 """

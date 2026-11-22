@@ -51,13 +51,20 @@ def _day(word: str) -> int | None:
 
 def parse_days(value) -> list[int]:
     """Accepts [0,2], ['monday','fri'], 'saturdays', 'every saturday', 'mon-fri', 'weekdays',
-    'weekends', 'every day', '' -> [] (= every day)."""
+    'weekends', 'every day', '' -> [] (= every day).
+    'once' -> special marker for one-time (returns [-1]).
+    Specific day names like 'monday' -> [0]."""
     if value in (None, "", [], "null"):
         return []
     items = value if isinstance(value, list) else [value]
     joined = " ".join(str(i).lower() for i in items).replace(",", " ").replace("،", " ").strip()
     # Join multi-word Persian day names ("سه شنبه" -> "سه‌شنبه") so they split as one word.
     joined = re.sub(r"(سه|پنج|یک)\s+شنبه", "\\1\u200cشنبه", joined).replace("\u200cها", "")
+
+    # Handle special "once" marker for one-time routines
+    if joined == "once":
+        return [-1]  # Special marker for one-time
+
     if re.fullmatch(r"(every\s*day|everyday|daily|all|all days|any)", joined):
         return []
     if "weekday" in joined:
