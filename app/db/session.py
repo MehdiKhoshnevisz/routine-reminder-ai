@@ -14,7 +14,7 @@ if settings.serverless:
     engine = create_async_engine(
         settings.DATABASE_URL,
         poolclass=NullPool,
-        connect_args={"prepare_threshold": None, "timeout": 10,}
+        connect_args={"prepare_threshold": None, "connect_timeout": 10,}
     )
 else:
     engine = create_async_engine(settings.DATABASE_URL, pool_pre_ping=True)
