@@ -29,7 +29,6 @@ async def create_routine(
     at: time,
     days: list[int] | None = None,
     description: str | None = None,
-    run_date: date | None = None,
 ) -> Routine:
     routine = Routine(
         user_id=user_id,
@@ -38,7 +37,6 @@ async def create_routine(
         days=sorted(set(days or [])),
         description=description,
         is_active=True,
-        run_date=run_date,
     )
     db.add(routine)
     await db.commit()
@@ -50,8 +48,8 @@ async def update_routine(db: AsyncSession, routine: Routine, **fields) -> Routin
     for k, v in fields.items():
         if v is not None:
             setattr(routine, k, v)
-    if fields.get("time") is not None or fields.get("run_date") is not None:
-        routine.last_reminded_on = None  # allow reminder again at the new time/date
+    if fields.get("time") is not None:
+        routine.last_reminded_on = None  # allow reminder again today at the new time
     await db.commit()
     await db.refresh(routine)
     return routine
@@ -69,15 +67,6 @@ async def delete_all_routines(db: AsyncSession, user_id: int) -> int:
 
 
 def _days_text(r: Routine) -> str:
-    if r.run_date:
-        # Show Persian date
-        from app.agent.parsing import _gregorian_to_persian
-        jy, jm, jd = _gregorian_to_persian(r.run_date)
-        persian_months = [
-            "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور",
-            "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"
-        ]
-        return f"{jd} {persian_months[jm-1]} {jy}"
     return "هر روز" if not r.days else "، ".join(DAY_NAMES[d] for d in DAY_ORDER if d in r.days)
 
 
@@ -101,8 +90,6 @@ def format_routine_card(r: Routine, header: str) -> str:
         f"ساعت: {r.time.strftime('%H:%M')}",
         f"روزها: {_days_text(r)}",
     ]
-    if r.run_date:
-        lines.append(f"تاریخ: {_days_text(r)}")  # _days_text handles run_date display
     if not r.is_active:
         lines.append("وضعیت: متوقف")
     return "\n".join(lines)

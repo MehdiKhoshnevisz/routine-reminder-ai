@@ -7,4 +7,3 @@ pydantic-settings>=2.6
 openai>=1.50
 python-telegram-bot>=21.6
 tzdata
-jdatetime>=6.1
