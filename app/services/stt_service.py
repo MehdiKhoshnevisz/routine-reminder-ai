@@ -41,13 +41,13 @@ WHISPER_MODEL = "openai/whisper-1"
 MAX_VOICE_SECONDS = 300
 
 
-async def transcribe_voice(file_bytes: bytes, filename: str = "voice.ogg") -> str | None:
+async def transcribe_voice(file_bytes: bytes, filename: str = "voice.ogg") -> tuple[str | None, str | None]:
     """Transcribe voice audio bytes to text using Whisper via OpenRouter.
 
-    Returns the transcribed text, or None if transcription failed.
+    Returns (text, error_reason). text is None on failure, error_reason explains why.
     """
     if not file_bytes:
-        return None
+        return None, "empty"
 
     # Write to temp file (Whisper API needs a file, not bytes)
     tmp_path = None
@@ -61,18 +61,24 @@ async def transcribe_voice(file_bytes: bytes, filename: str = "voice.ogg") -> st
                 model=WHISPER_MODEL,
                 file=audio_file,
                 language="fa",  # Persian - improves accuracy
-                response_format="text",
+                # OpenRouter only supports json/verbose_json (default json returns {"text": "..."})
             )
 
-        text = (resp or "").strip()
-        if not text:
-            return None
+        # Response is a Transcription object with .text attribute (json format)
+        text = (getattr(resp, "text", None) or str(resp) or "").strip()
+        if not text or text == "{}":
+            return None, "empty_result"
         log.info("Voice transcribed (%d chars): %s", len(text), text[:100])
-        return text
+        return text, None
 
-    except Exception:
+    except Exception as e:
+        # Detect OpenRouter credit issue (free tier can't use audio API)
+        err_str = str(e)
+        if "balance" in err_str.lower() or "$0.50" in err_str or "402" in err_str:
+            log.error("OpenRouter audio API requires paid credits (min $0.50): %s", err_str[:200])
+            return None, "credits"
         log.exception("Voice transcription failed")
-        return None
+        return None, "error"
 
     finally:
         if tmp_path and os.path.exists(tmp_path):

@@ -601,10 +601,16 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
 
     # Transcribe
     await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
-    text = await stt_service.transcribe_voice(audio_bytes, filename=voice.file_unique_id + ".ogg")
+    text, err = await stt_service.transcribe_voice(audio_bytes, filename=voice.file_unique_id + ".ogg")
 
     if not text:
-        await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
+        if err == "credits":
+            await msg.reply_text(
+                "قابلیت پیام صوتی فعلاً غیرفعاله چون OpenRouter برای پردازش صدا حداقل $0.50 اعتبار لازم داره.\n"
+                "لطفاً اعتبار اضافه کن یا پیام متنی بفرست :)"
+            )
+        else:
+            await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
         return
 
     # Confirm what we heard
