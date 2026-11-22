@@ -24,6 +24,9 @@ MODEL_ZIP = "/tmp/vosk-model-fa.zip"
 # Vosk works best at 16kHz; Telegram voice is typically 48kHz Opus
 TARGET_SAMPLE_RATE = 16000
 
+# Max voice duration to process (Telegram allows up to ~20 min; we cap at 5 min)
+MAX_VOICE_SECONDS = 300
+
 _model = None
 _model_lock = asyncio.Lock()
 
