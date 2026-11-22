@@ -114,11 +114,13 @@ SHORT_DESCRIPTION = "ناصرم =) کار‌هات رو بگو، سر وقت ب�
 GROUP_HELP = (
     "سلام! من ناصرم =)\n"
     "کار‌های این گروه رو سر وقت توی همین گروه یادآوری می‌کنم.\n\n"
-    "فقط ادمین‌های گروه می‌تونن کار بسازن یا تغییر بدن.\n"
-    "برای ساختن کار منو منشن کن یا روی پیامم ریپلای کن، مثلاً:\n"
+    "فقط ادمین‌های گروه می‌تونن کار بسازن یا تغییر بدن.\n\n"
+    "تو گروه‌ها فقط با دستور کار می‌کنم (دکمه‌ای ندارم).\n"
+    "من رو منشن کن یا روی پیامم ریپلای کن، مثلاً:\n"
     "• @{username} جلسه ساعت ۱۰ روزهای کاری\n"
     "• @{username} ورزش گروهی ساعت ۱۹ آخر هفته‌ها\n\n"
-    "بقیه‌ی کارها هم با دکمه‌های زیر :)"
+    "برای دیدن لیست کارها هم همین‌طور بهم بگو:\n"
+    "• @{username} لیست کارها"
 )
 
 
@@ -206,7 +208,7 @@ def _menu(update: Update):
 
 
 def _help_markup(update: Update):
-    return GROUP_MENU if _is_group(update) else MAIN_MENU
+    return None if _is_group(update) else MAIN_MENU
 
 
 def _reply_hint(update: Update) -> str:
@@ -594,7 +596,8 @@ async def on_new_members(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         return
     async with SessionLocal() as db:
         group = await _user(db, update)
-    await update.message.reply_text(_help_text(group, update, ctx), reply_markup=GROUP_MENU)
+    # Send welcome message WITHOUT inline keyboard in groups
+    await update.message.reply_text(_help_text(group, update, ctx))
 
 
 async def on_migrate(update: Update, _: ContextTypes.DEFAULT_TYPE):
