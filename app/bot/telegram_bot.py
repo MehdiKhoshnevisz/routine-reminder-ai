@@ -26,7 +26,7 @@ from app.agent.parsing import parse_time
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import routine_service as rs
-from app.services import state_service, user_service
+from app.services import state_service, user_service, stt_service
 from app.services.routine_service import DAY_NAMES, DAY_ORDER
 
 log = logging.getLogger(__name__)
@@ -96,6 +96,7 @@ HELP = (
     "• هر روز ساعت سه و نیم یادم بنداز ورزش کنم.\n"
     "• روزهای کاری ساعت هفت شب یادم بنداز زبان بخونم.\n"
     "• ساعت ورزش رو از هفت به هشت تغییر بده.\n\n"
+    # "🎙️ یا حتی پیام صوتی بفرست!\n\n"
     "همین!\n\n"
     "برای دیدن، تغییر یا حذف کار‌هات هم از دکمه‌های پایین استفاده کن :)"
 )
@@ -558,6 +559,77 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(reply, reply_markup=_menu(update))
 
 
+async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
+    """Voice message: transcribe it, then treat the text like a normal message."""
+    msg = update.message
+    voice = msg.voice
+    if not voice:
+        return
+
+    # Group addressing rules apply to voice too
+    if _is_group(update):
+        text_check = msg.caption or ""
+        mention = f"@{ctx.bot.username}"
+        reply = msg.reply_to_message
+        is_addressed = (
+            mention.lower() in text_check.lower()
+            or (reply and reply.from_user and reply.from_user.id == ctx.bot.id)
+        )
+        if not is_addressed:
+            return  # voice in group not meant for the bot
+
+    if not await _is_admin(update, ctx):
+        await msg.reply_text(NOT_ADMIN)
+        return
+
+    # Duration guard
+    if voice.duration and voice.duration > stt_service.MAX_VOICE_SECONDS:
+        await msg.reply_text("پیام صوتی خیلی طولانیه! لطفاً زیر ۵ دقیقه بفرست :)")
+        return
+
+    await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
+
+    # Download the voice file
+    try:
+        file = await ctx.bot.get_file(voice.file_id)
+        audio_bytes = await file.download_as_bytearray()
+        audio_bytes = bytes(audio_bytes)
+    except Exception:
+        log.exception("Failed to download voice message")
+        await msg.reply_text("متأسفم، نتونستم voices رو دانلود کنم. لطفاً دوباره امتحان کن.")
+        return
+
+    # Transcribe
+    await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.RECORD_AUDIO)
+    text = await stt_service.transcribe_voice(audio_bytes, filename=voice.file_unique_id + ".ogg")
+
+    if not text:
+        await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
+        return
+
+    # Confirm what we heard
+    await msg.reply_text(f"شنیدم: «{text}»", reply_markup=_menu(update))
+
+    # Process as normal text message
+    async with SessionLocal() as db:
+        user = await _user(db, update)
+        try:
+            reply = await agent.chat(db, user, text)
+        except RateLimitError:
+            log.warning("OpenRouter rate limited")
+            reply = "الان درخواست‌ها خیلی زیاده. لطفاً یک دقیقه دیگه دوباره امتحان کن."
+        except APITimeoutError:
+            log.warning("OpenRouter request timed out")
+            reply = "فکر کردن بهش خیلی طول کشید. لطفاً دوباره امتحان کن."
+        except AuthenticationError:
+            log.error("OpenRouter auth failed, check OPENROUTER_API_KEY")
+            reply = "متأسفم، الان درست تنظیم نشدم. لطفاً بعداً دوباره امتحان کن."
+        except Exception:
+            log.exception("agent failed")
+            reply = "متأسفم، مغزم (OpenRouter) الان جواب نمی‌ده. لطفاً چند لحظه دیگه دوباره امتحان کن."
+    await msg.reply_text(reply, reply_markup=_menu(update))
+
+
 async def unknown_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     """Any other /command: the bot has no command menu, so just show the help with the keyboard."""
     if _is_group(update) and f"@{ctx.bot.username}".lower() not in update.message.text.lower():
@@ -652,6 +724,7 @@ def build_application() -> Application | None:
 
     app.add_handler(MessageHandler(filters.COMMAND, unknown_cmd))
     app.add_handler(CallbackQueryHandler(on_callback))
+    app.add_handler(MessageHandler(filters.VOICE, on_voice))
     app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, on_message))
     return app
 
