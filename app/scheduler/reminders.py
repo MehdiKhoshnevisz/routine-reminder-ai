@@ -47,6 +47,18 @@ def reminder_text(routine: Routine) -> str:
 def is_due(routine: Routine, now_local: datetime) -> bool:
     if routine.last_reminded_on == now_local.date():
         return False
+
+    # Check run_date for one-time specific date routines
+    if routine.run_date:
+        if routine.run_date != now_local.date():
+            return False
+        # run_date matches today, check time
+        scheduled = now_local.replace(
+            hour=routine.time.hour, minute=routine.time.minute, second=0, microsecond=0
+        )
+        return scheduled <= now_local < scheduled + timedelta(minutes=settings.REMINDER_GRACE_MINUTES)
+
+    # Recurring/weekly routines
     if routine.days and now_local.weekday() not in routine.days:
         return False
     scheduled = now_local.replace(

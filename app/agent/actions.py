@@ -7,7 +7,7 @@ from typing import Literal
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.agent.parsing import parse_days, parse_time
+from app.agent.parsing import parse_days, parse_time, parse_date
 from app.models import Routine
 from app.services import routine_service as rs
 
@@ -20,6 +20,7 @@ class Action(BaseModel):
     title: str | None = None
     time: str | None = None
     days: str | None = None
+    run_date: str | None = None  # Specific date for one-time routines (e.g., "16 آذر", "in 2 weeks")
 
 
 class AgentOutput(BaseModel):
@@ -133,6 +134,15 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                 wants_tomorrow = "فردا" in msg_lower or "farda" in msg_lower
                 wants_today = "امروز" in msg_lower or "emrooz" in msg_lower
 
+                # Parse run_date if provided (for specific date routines)
+                parsed_run_date = None
+                if a.run_date:
+                    from app.models import User
+                    from zoneinfo import ZoneInfo
+                    user_for_tz = await db.get(User, user_id)
+                    tz = user_for_tz.timezone if user_for_tz else "Asia/Tehran"
+                    parsed_run_date = parse_date(a.run_date, tz)
+
                 # Default: single day (today or tomorrow based on time)
                 # Only use recurring ([]) if LLM explicitly said "every"
                 from app.models import User
@@ -141,7 +151,11 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                 user = await db.get(User, user_id)
                 if user:
                     now = datetime.now(ZoneInfo(user.timezone))
-                    if wants_tomorrow:
+                    if parsed_run_date:
+                        # Specific date provided - this is a one-time routine on that date
+                        # days should be empty (not recurring)
+                        parsed_days = []
+                    elif wants_tomorrow:
                         target_day = (now + timedelta(days=1)).weekday()
                         parsed_days = [target_day]
                     elif wants_today:
@@ -162,7 +176,7 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     parsed_days = [0]  # fallback to Monday
 
                 r = await rs.create_routine(
-                    db, user_id, title=a.title.strip()[:200], at=parse_time(a.time), days=parsed_days
+                    db, user_id, title=a.title.strip()[:200], at=parse_time(a.time), days=parsed_days, run_date=parsed_run_date
                 )
                 msg = f"ساخته شد :) \n {rs.format_routine(r)}"
                 results.append(msg)
@@ -190,10 +204,15 @@ async def execute(db: AsyncSession, user_id: int, actions: list[Action], message
                     r = await rs.update_routine(db, r, is_active=a.type == "resume")
                     results.append(f"{'دوباره فعال شد :)' if r.is_active else 'متوقف شد:'} {rs.format_routine(r)}")
                 else:  # update
+                    from app.models import User
+                    from zoneinfo import ZoneInfo
+                    user_for_tz = await db.get(User, user_id)
+                    tz = user_for_tz.timezone if user_for_tz else "Asia/Tehran"
                     r = await rs.update_routine(
                         db, r,
                         time=parse_time(a.time) if a.time else None,
                         days=parse_days(a.days) if a.days else None,
+                        run_date=parse_date(a.run_date, tz) if a.run_date else None,
                     )
                     results.append(rs.format_routine_card(r, "آپدیت شد :)"))
         except ValueError as e:

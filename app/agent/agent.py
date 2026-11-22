@@ -88,6 +88,12 @@ Times ("time" is 24h "HH:MM" with English digits):
   - "فردا" (tomorrow) -> **USE THE WEEKDAY PROVIDED ABOVE**: if {weekday} is "Sunday", tomorrow is "monday"; if "Monday" -> "tuesday", etc.
   - "امروز" (today) -> **USE THE WEEKDAY PROVIDED ABOVE**: e.g. if {weekday} is "Sunday", use "sunday"
   - "هر روز" / "هرروز" / "دایم" / "روزانه" / "دفعه‌های بعد هم" / "همیشه" -> "every" (MUST output days: "every" for recurring daily)
+- run_date: **For ONE-TIME routines on a SPECIFIC DATE** (not recurring weekly). Use for:
+  - Persian dates: "۱۶ آذر", "16 آذر ۱۴۰۳" -> output run_date: "16 آذر" (or full with year)
+  - Relative: "دو هفته دیگه", "2 weeks later", "۳ روز بعد", "in 3 days" -> output run_date: "in 2 weeks"
+  - "فردا", "امروز" -> use days field (not run_date)
+  - If run_date is set, OMIT days (or set days: "") — run_date takes precedence
+  - Gregorian: "2025-03-15", "15/03/2025" -> output run_date: "2025-03-15"
 - If the message has NOTHING to do with routines (greetings, small talk, jokes, general questions, other topics),
   return {{"actions":[],"message":"","off_topic":true}}. Do not answer it.
 - If the message IS about routines but is unclear (e.g. missing time), return no actions and put a short question in Persian in "message".
@@ -125,6 +131,12 @@ Examples:
 {{"actions":[{{"type":"create","title":"دارو خوردن","time":"20:00"}}],"message":""}}
 (after the routine "ورزش" was created at 15:00) "نه صبح" ->
 {{"actions":[{{"type":"update","title":"ورزش","time":"03:00"}}],"message":""}}
+"۱۶ آذر ساعت ۱۴ یادم بنداز برم تئاتر" ->
+{{"actions":[{{"type":"create","title":"رفتن به تئاتر","time":"14:00","run_date":"16 آذر"}}],"message":""}}
+"دو هفته دیگه ساعت ۱۰ یادم بنداز بلیط بخرم" ->
+{{"actions":[{{"type":"create","title":"خرید بلیط","time":"10:00","run_date":"in 2 weeks"}}],"message":""}}
+"۳ روز بعد ساعت ۱۸ جلسه دارم" ->
+{{"actions":[{{"type":"create","title":"جلسه","time":"18:00","run_date":"in 3 days"}}],"message":""}}
 """
 
 OFF_TOPIC_REPLY = (
