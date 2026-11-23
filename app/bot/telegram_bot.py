@@ -269,13 +269,19 @@ def admin_only(handler):
 
 def _addressed_text(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> str | None:
     """Text meant for the bot. In groups only messages that mention the bot or reply to it count
-    (an admin bot receives every group message); the mention is stripped."""
+    (an admin bot receives every group message); the mention is stripped.
+
+    Returns:
+        - str (possibly empty ""): text meant for bot (empty = just @bot mention)
+        - None: not addressed to bot
+    """
     msg = update.message
     if not _is_group(update):
         return msg.text
     mention = f"@{ctx.bot.username}"
     if mention.lower() in msg.text.lower():
-        return re.sub(re.escape(mention), "", msg.text, flags=re.IGNORECASE).strip() or None
+        stripped = re.sub(re.escape(mention), "", msg.text, flags=re.IGNORECASE).strip()
+        return stripped  # empty string "" means "@bot" only (no text)
     reply = msg.reply_to_message
     if reply and reply.from_user and reply.from_user.id == ctx.bot.id:
         return msg.text
@@ -559,10 +565,19 @@ async def _handle_awaiting(update: Update, ctx: ContextTypes.DEFAULT_TYPE, await
 
 async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
     text = _addressed_text(update, ctx)
-    if not text:
+    if text is None:
         return  # group chatter not meant for the bot
     if not await _is_admin(update, ctx):
         await update.message.reply_text(NOT_ADMIN)
+        return
+
+    # Just @bot mention (empty text) -> show help
+    if text == "":
+        await update.message.reply_text(
+            HELP.format(username=ctx.bot.username) if _is_group(update) else HELP,
+            reply_markup=_menu(update),
+            parse_mode=ParseMode.MARKDOWN,
+        )
         return
 
     if m := _ROUTINE_REF.fullmatch(text):  # "#4", "#۴", "شارپ ۴"
