@@ -214,6 +214,7 @@ async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str
         message: User's message text
         reply_to_routine: If user replied to a routine card, the routine's title (and #id) to give context
     """
+    log.info("Agent received message: %r", message)
     now = datetime.now(ZoneInfo(user.timezone))
     routines = await rs.list_routines(db, user.id)
 
