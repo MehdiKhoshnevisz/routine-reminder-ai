@@ -244,10 +244,15 @@ async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str
         log.warning("Bad LLM output: %s", raw)
         return "ببخشید، درست متوجه نشدم :( می‌تونی یه جور دیگه بگی؟ مثلاً «ورزش ساعت ۱۹ هر روز»."
 
+    # Debug: log raw LLM output for titles
+    log.info("LLM raw output: %s", raw)
+
     out.message = strip_emoji(out.message)
     for a in out.actions:
         if a.title:
+            log.info("LLM title before clean: %r", a.title)
             a.title = _clean_title_for_agent(a.title)
+            log.info("LLM title after clean: %r", a.title)
     if out.off_topic and not out.actions:
         return OFF_TOPIC_REPLY  # not stored in history so small talk doesn't steer later replies
 
