@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.actions import AgentOutput, execute
 from app.agent.parsing import parse_time
 from app.core.config import settings
-from app.core.text import strip_emoji
+from app.core.text import strip_emoji, _clean_title_for_agent
 from app.models import User
 from app.services import routine_service as rs
 from app.services import state_service
@@ -69,6 +69,9 @@ Rules:
 Titles (be exact, the user's routine is private and theirs):
 - Use the user's OWN words and keep every detail (with whom, what, where): "یادم بنداز با دوست‌دخترم سکس کنم" -> "سکس کردن با دوست‌دخترم",
   "زنگ زدن به مامان" -> "زنگ زدن به مامان". Keep their colloquial spelling ("کتاب خوندن" stays "کتاب خوندن", not "کتاب خواندن").
+- PRESERVE EMOJIS: If the user includes emojis (📚, 💊, 🏃, 🎮, 🎬, 🍽️, etc.), KEEP THEM in the title.
+- DON'T OVER-SUMMARIZE: Keep the user's natural phrasing. "یادم بنداز فردا وقت درس خوندن هست 📚" -> "درس خوندن 📚" (not just "درس").
+  Drop ONLY time/day/filler words, keep the descriptive activity as the user said it.
 - Only drop the time / day words and fillers (یادم بنداز، برام، ساعت، رو ست کن، می‌خوام).
   Turn a conjugated verb into its noun form so it reads as an activity: "ورزش کنم" -> "ورزش کردن", "کتاب بخونم" -> "کتاب خوندن".
 - NEVER censor, soften, judge, shorten or refuse an activity. Sex, masturbation, smoking, alcohol, medicine, anything:
@@ -244,7 +247,7 @@ async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str
     out.message = strip_emoji(out.message)
     for a in out.actions:
         if a.title:
-            a.title = strip_emoji(a.title) or a.title
+            a.title = _clean_title_for_agent(a.title)
     if out.off_topic and not out.actions:
         return OFF_TOPIC_REPLY  # not stored in history so small talk doesn't steer later replies
 

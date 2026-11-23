@@ -7,5 +7,14 @@ _EMOJI = re.compile(
 
 
 def strip_emoji(text: str) -> str:
-    """The bot is emoji-free (text emoticons like :) instead); LLM output is filtered as a safety net."""
+    """The bot is emoji-free (text emoticons like :) instead); LLM output is filtered as a safety net.
+
+    NOTE: This is now only used for assistant messages, NOT for routine titles.
+    Titles preserve emojis via _clean_title_for_agent().
+    """
     return re.sub(r"[ \t]{2,}", " ", _EMOJI.sub("", text)).strip()
+
+
+def _clean_title_for_agent(text: str) -> str:
+    """Clean title for agent processing - keep emojis, normalize whitespace only."""
+    return re.sub(r"[ \t]{2,}", " ", text).strip()
