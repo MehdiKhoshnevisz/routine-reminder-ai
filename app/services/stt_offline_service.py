@@ -78,12 +78,24 @@ def _download_and_extract_model():
     log.info("Extracting Vosk model to %s...", MODEL_DIR)
 
     # Extract directly to target directory (avoids duplicate space in /tmp)
+    # The zip has a top-level folder (e.g. "vosk-model-small-fa-0.5/") that we strip
     with zipfile.ZipFile(MODEL_ZIP, "r") as zf:
-        # Create target dir
+        # Detect top-level folder from first entry
+        first_name = zf.infolist()[0].filename
+        top_level = first_name.split("/")[0] + "/"
+
         os.makedirs(MODEL_DIR, exist_ok=True)
         for member in zf.infolist():
-            # Skip directories, extract files directly to MODEL_DIR preserving structure
-            target_path = os.path.join(MODEL_DIR, member.filename)
+            # Strip top-level folder prefix
+            if member.filename.startswith(top_level):
+                rel_path = member.filename[len(top_level):]
+            else:
+                rel_path = member.filename
+
+            if not rel_path:  # skip the top-level folder entry itself
+                continue
+
+            target_path = os.path.join(MODEL_DIR, rel_path)
             if member.is_dir():
                 os.makedirs(target_path, exist_ok=True)
             else:
