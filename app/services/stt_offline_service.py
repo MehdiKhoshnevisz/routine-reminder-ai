@@ -52,26 +52,46 @@ _model_lock = asyncio.Lock()
 
 
 def _download_and_extract_model():
-    """Download and extract the Vosk model if not already present. Blocking I/O, run in executor."""
+    """Download and extract the Vosk model if not already present. Blocking I/O, run in executor.
+
+    Space-efficient: streams download, extracts directly to target dir, deletes zip immediately.
+    """
     if os.path.isdir(MODEL_DIR) and os.path.exists(os.path.join(MODEL_DIR, "am", "final.mdl")):
         return
 
-    log.info("Downloading Vosk Persian model (one-time, ~53MB)...")
-    urllib.request.urlretrieve(VOSK_MODEL_URL, MODEL_ZIP)
+    log.info("Downloading Vosk Persian model (streaming)...")
 
-    log.info("Extracting Vosk model...")
+    # Stream download to avoid loading entire zip in memory
+    import shutil
+    with urllib.request.urlopen(VOSK_MODEL_URL) as resp, open(MODEL_ZIP, "wb") as out:
+        total = int(resp.headers.get("Content-Length", 0))
+        downloaded = 0
+        while True:
+            chunk = resp.read(1024 * 1024)  # 1MB chunks
+            if not chunk:
+                break
+            out.write(chunk)
+            downloaded += len(chunk)
+            if total:
+                log.debug("Downloaded %d/%d bytes (%.1f%%)", downloaded, total, 100 * downloaded / total)
+
+    log.info("Extracting Vosk model to %s...", MODEL_DIR)
+
+    # Extract directly to target directory (avoids duplicate space in /tmp)
     with zipfile.ZipFile(MODEL_ZIP, "r") as zf:
-        zf.extractall("/tmp/")
+        # Create target dir
+        os.makedirs(MODEL_DIR, exist_ok=True)
+        for member in zf.infolist():
+            # Skip directories, extract files directly to MODEL_DIR preserving structure
+            target_path = os.path.join(MODEL_DIR, member.filename)
+            if member.is_dir():
+                os.makedirs(target_path, exist_ok=True)
+            else:
+                os.makedirs(os.path.dirname(target_path), exist_ok=True)
+                with zf.open(member) as src, open(target_path, "wb") as dst:
+                    shutil.copyfileobj(src, dst)
 
-    # Rename extracted folder to MODEL_DIR
-    extracted = "/tmp/vosk-model-small-fa-0.5"
-    if os.path.isdir(extracted) and extracted != MODEL_DIR:
-        if os.path.exists(MODEL_DIR):
-            import shutil
-            shutil.rmtree(MODEL_DIR)
-        os.rename(extracted, MODEL_DIR)
-
-    # Clean up zip
+    # Clean up zip immediately
     try:
         os.unlink(MODEL_ZIP)
     except OSError:
