@@ -60,6 +60,12 @@ GROUP_MENU = InlineKeyboardMarkup([
 
 CANCEL_BUTTON = InlineKeyboardMarkup([[InlineKeyboardButton("لغو", callback_data="cx")]])
 
+# Voice transcription confirmation
+VOICE_CONFIRM_KEYBOARD = InlineKeyboardMarkup([
+    [InlineKeyboardButton("✅ بله، تایید می‌کنم", callback_data="vc:yes")],
+    [InlineKeyboardButton("❌ نه، اشتباه شنیده", callback_data="vc:no")],
+])
+
 # Timezone picker (callback data max 64 bytes)
 TZ_CHOICES = [
     ("ایران - تهران", "Asia/Tehran"), ("امارات متحده - دبی", "Asia/Dubai"),
@@ -401,6 +407,36 @@ async def on_callback(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await q.edit_message_text("لغو شد :)")
         return
 
+    if action == "vc":  # voice confirmation
+        text = ctx.user_data.pop("pending_voice_text", None)
+        if not text:
+            await q.edit_message_text("متأسفم، متن صوتی پیدا نشد. لطفاً دوباره امتحان کن.")
+            return
+
+        if rest[0] == "yes":
+            await q.edit_message_text(f"✅ تایید شد: «{text}»")
+            # Process as normal text message
+            async with SessionLocal() as db:
+                user = await _user(db, update)
+                try:
+                    reply = await agent.chat(db, user, text)
+                except RateLimitError:
+                    log.warning("OpenRouter rate limited")
+                    reply = "الان درخواست‌ها خیلی زیاده. لطفاً یک دقیقه دیگه دوباره امتحان کن."
+                except APITimeoutError:
+                    log.warning("OpenRouter request timed out")
+                    reply = "فکر کردن بهش خیلی طول کشید. لطفاً دوباره امتحان کن."
+                except AuthenticationError:
+                    log.error("OpenRouter auth failed, check OPENROUTER_API_KEY")
+                    reply = "متأسفم، الان درست تنظیم نشدم. لطفاً بعداً دوباره امتحان کن."
+                except Exception:
+                    log.exception("agent failed")
+                    reply = "متأسفم، مغزم (OpenRouter) الان جواب نمی‌ده. لطفاً چند لحظه دیگه دوباره امتحان کن."
+            await ctx.bot.send_message(update.effective_chat.id, reply, reply_markup=_menu(update))
+        else:  # "no"
+            await q.edit_message_text("❌ لغو شد. لطفاً دوباره پیام صوتی بفرست یا بنویس.")
+        return
+
     if action == "m":  # inline menu (groups) / "delete all" under the list
         handler = {"list": routines_cmd, "tz": timezone_cmd, "reset": reset_cmd,
                    "support": support_cmd, "donate": donate_cmd}.get(rest[0])
@@ -608,27 +644,14 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
         return
 
-    # Confirm what we heard
-    await msg.reply_text(f"شنیدم: «{text}»", reply_markup=_menu(update))
+    # Store transcribed text for confirmation
+    ctx.user_data["pending_voice_text"] = text
 
-    # Process as normal text message
-    async with SessionLocal() as db:
-        user = await _user(db, update)
-        try:
-            reply = await agent.chat(db, user, text)
-        except RateLimitError:
-            log.warning("OpenRouter rate limited")
-            reply = "الان درخواست‌ها خیلی زیاده. لطفاً یک دقیقه دیگه دوباره امتحان کن."
-        except APITimeoutError:
-            log.warning("OpenRouter request timed out")
-            reply = "فکر کردن بهش خیلی طول کشید. لطفاً دوباره امتحان کن."
-        except AuthenticationError:
-            log.error("OpenRouter auth failed, check OPENROUTER_API_KEY")
-            reply = "متأسفم، الان درست تنظیم نشدم. لطفاً بعداً دوباره امتحان کن."
-        except Exception:
-            log.exception("agent failed")
-            reply = "متأسفم، مغزم (OpenRouter) الان جواب نمی‌ده. لطفاً چند لحظه دیگه دوباره امتحان کن."
-    await msg.reply_text(reply, reply_markup=_menu(update))
+    # Ask for confirmation with inline buttons
+    await msg.reply_text(
+        f"شنیدم: «{text}»\n\nدرست شنیده‌ام؟",
+        reply_markup=VOICE_CONFIRM_KEYBOARD
+    )
 
 
 async def unknown_cmd(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
