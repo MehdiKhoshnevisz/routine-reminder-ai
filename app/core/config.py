@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # like "move it to 8"; keeping it forever was most of each user's storage).
     AGENT_HISTORY_TTL_MINUTES: int = 120
 
+    # STT Provider: "groq" (recommended), "cloudflare", or "offline" (Vosk, deprecated)
+    STT_PROVIDER: str = "groq"
+    # Groq API key for Whisper (get from https://console.groq.com/keys)
+    GROQ_API_KEY: str = ""
+    # Cloudflare (alternative)
+    CF_ACCOUNT_ID: str = ""
+    CF_API_TOKEN: str = ""
+
     # "polling" = long-running process (local dev, uvicorn).
     # "webhook" = serverless (Vercel): Telegram POSTs updates to /api/telegram/webhook and an
     #             external cron calls /api/cron/reminders every minute. Defaults to webhook on Vercel.

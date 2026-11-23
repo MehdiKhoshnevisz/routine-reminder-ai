@@ -26,7 +26,7 @@ from app.agent.parsing import parse_time
 from app.core.config import settings
 from app.db.session import SessionLocal
 from app.services import routine_service as rs
-from app.services import state_service, user_service, stt_offline_service as stt_service
+from app.services import state_service, user_service, stt_api_service as stt_service
 from app.services.routine_service import DAY_NAMES, DAY_ORDER
 
 log = logging.getLogger(__name__)
@@ -582,8 +582,9 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text(NOT_ADMIN)
         return
 
-    # Duration guard
-    if voice.duration and voice.duration > stt_service.MAX_VOICE_SECONDS:
+    # Duration guard (5 min max)
+    MAX_VOICE_SECONDS = 300
+    if voice.duration and voice.duration > MAX_VOICE_SECONDS:
         await msg.reply_text("پیام صوتی خیلی طولانیه! لطفاً زیر ۵ دقیقه بفرست :)")
         return
 
@@ -599,9 +600,9 @@ async def on_voice(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await msg.reply_text("متأسفم، نتونستم پیام صوتی رو دانلود کنم. لطفاً دوباره امتحان کن.")
         return
 
-    # Transcribe (offline Vosk - no API key needed)
+    # Transcribe via API (Groq/Cloudflare) or offline fallback
     await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
-    text = await stt_service.transcribe_voice_offline(audio_bytes)
+    text = await stt_service.transcribe_voice(audio_bytes, filename="voice.ogg")
 
     if not text:
         await msg.reply_text("متأسفم، نتونستم صدات رو بشناسم :( لطفاً دوباره امتحان کن یا بنویس.")
