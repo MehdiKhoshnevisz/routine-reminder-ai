@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.agent.actions import AgentOutput, execute
 from app.agent.parsing import parse_time
 from app.core.config import settings
-from app.core.text import strip_emoji, _clean_title_for_agent
+from app.core.text import strip_emoji, _clean_title_for_agent, preserve_emojis_in_title
 from app.models import User
 from app.services import routine_service as rs
 from app.services import state_service
@@ -258,6 +258,9 @@ async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str
             log.info("LLM title before clean: %r", a.title)
             a.title = _clean_title_for_agent(a.title)
             log.info("LLM title after clean: %r", a.title)
+            # Fallback: preserve emojis from user message if LLM dropped them
+            a.title = preserve_emojis_in_title(message, a.title)
+            log.info("LLM title after emoji preserve: %r", a.title)
     if out.off_topic and not out.actions:
         return OFF_TOPIC_REPLY  # not stored in history so small talk doesn't steer later replies
 
