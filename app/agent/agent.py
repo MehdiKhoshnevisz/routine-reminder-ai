@@ -240,6 +240,7 @@ async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str
         messages=messages,
         response_format={"type": "json_object"},
         temperature=0,
+        max_tokens=settings.OPENROUTER_MAX_TOKENS,
     )
     raw = resp.choices[0].message.content or "{}"
     try:
