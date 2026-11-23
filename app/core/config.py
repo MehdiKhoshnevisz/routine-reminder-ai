@@ -32,6 +32,10 @@ class Settings(BaseSettings):
     STT_PROVIDER: str = "groq"
     # Groq API key for Whisper (get from https://console.groq.com/keys)
     GROQ_API_KEY: str = ""
+    # Groq Whisper model: "whisper-large-v3" (best accuracy) or "whisper-large-v3-turbo" (faster)
+    GROQ_WHISPER_MODEL: str = "whisper-large-v3"
+    # Optional: custom prompt for better Persian recognition (default includes routine commands)
+    GROQ_WHISPER_PROMPT: str = ""
     # Cloudflare (alternative)
     CF_ACCOUNT_ID: str = ""
     CF_API_TOKEN: str = ""

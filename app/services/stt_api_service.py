@@ -40,19 +40,40 @@ async def transcribe_voice(file_bytes: bytes, filename: str = "voice.ogg") -> st
     return None
 
 
+# Default Persian context prompt for Whisper to improve routine command recognition
+DEFAULT_GROQ_PROMPT = (
+    "یادم بنداز، یادم بینداز، یادآوری، تنظیم کن، یادت باشه، "
+    "هر روز، روزانه، فردا، امروز، پریروز، هفته بعد، ماه بعد، دو هفته دیگه، "
+    "ساعت، صبح، شام، بعدازظهر، "
+    "لیست کارها، کارها، کارهام، نمایش بده، نشون بده، "
+    "حذف کن، پاک کن، نمی‌خوام، نیاز ندارم، لغو کن، حذفش کن، پاکش کن، "
+    "تئاتر، بلیط، بخرم، بازی، ورزش، دارو، غذا، جلسه، ملاقات، خرید، دکتر، دندون، "
+    "یک، دو، سه، چهار، پنج، شش، هفت، هشت، نه، ده، یازده، دوازده، سی، چهل، پنجاه"
+)
+
+
 async def _transcribe_groq(file_bytes: bytes, filename: str) -> str | None:
-    """Transcribe using Groq's Whisper API (OpenAI-compatible)."""
+    """Transcribe using Groq's Whisper API (OpenAI-compatible).
+
+    Uses configurable model (default whisper-large-v3 for accuracy) + Persian prompt.
+    """
     if not settings.GROQ_API_KEY:
         log.error("GROQ_API_KEY not configured")
         return None
+
+    # Use custom prompt from env, or default
+    prompt = settings.GROQ_WHISPER_PROMPT or DEFAULT_GROQ_PROMPT
+    model = settings.GROQ_WHISPER_MODEL or "whisper-large-v3"
 
     try:
         async with httpx.AsyncClient(timeout=60.0) as client:
             files = {"file": (filename, file_bytes, "audio/ogg")}
             data = {
-                "model": "whisper-large-v3-turbo",
-                "language": "fa",  # Persian
+                "model": model,
+                "language": "fa",
+                "prompt": prompt,
                 "response_format": "json",
+                "temperature": 0.0,  # Deterministic
             }
             resp = await client.post(
                 "https://api.groq.com/openai/v1/audio/transcriptions",
@@ -65,7 +86,7 @@ async def _transcribe_groq(file_bytes: bytes, filename: str) -> str | None:
             text = result.get("text", "").strip()
 
             if text:
-                log.info("Groq STT transcribed (%d chars): %s", len(text), text[:100])
+                log.info("Groq STT transcribed (%d chars, model=%s): %s", len(text), model, text[:100])
             return text or None
 
     except httpx.HTTPStatusError as e:
