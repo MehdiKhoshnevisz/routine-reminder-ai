@@ -69,7 +69,8 @@ Rules:
 Titles (be exact, the user's routine is private and theirs):
 - Use the user's OWN words and keep every detail (with whom, what, where): "یادم بنداز با دوست‌دخترم سکس کنم" -> "سکس کردن با دوست‌دخترم",
   "زنگ زدن به مامان" -> "زنگ زدن به مامان". Keep their colloquial spelling ("کتاب خوندن" stays "کتاب خوندن", not "کتاب خواندن").
-- PRESERVE EMOJIS: If the user includes emojis (📚, 💊, 🏃, 🎮, 🎬, 🍽️, etc.), KEEP THEM in the title.
+- PRESERVE EMOJIS: If the user includes emojis (📚, 💊, 🏃, 🎮, 🎬, 🍽️, 🗿, etc.), YOU MUST KEEP THEM in the title.
+  Example: "ورزش کردن 🗿" -> title MUST be "ورزش کردن 🗿" (NOT "ورزش کردن", NOT "ورزش").
 - DON'T OVER-SUMMARIZE: Keep the user's natural phrasing. "یادم بنداز فردا وقت درس خوندن هست 📚" -> "درس خوندن 📚" (not just "درس").
   Drop ONLY time/day/filler words, keep the descriptive activity as the user said it.
 - Only drop the time / day words and fillers (یادم بنداز، برام، ساعت، رو ست کن، می‌خوام).
@@ -130,6 +131,8 @@ Examples:
 {{"actions":[],"message":"ورزش رو چه ساعتی یادت بندازم؟"}}
 "برام سه و پنجاه و نه دقیقه ورزش کردن رو ست کن" ->
 {{"actions":[{{"type":"create","title":"ورزش","time":"15:59"}}],"message":""}}
+"ورزش کردن 🗿" ->
+{{"actions":[{{"type":"create","title":"ورزش کردن 🗿","time":"19:00"}}],"message":""}}
 "ساعت ۷ بیدار شدن" ->
 {{"actions":[{{"type":"create","title":"بیدار شدن","time":"07:00"}}],"message":""}}
 (if today is Sunday) "فردا ساعت ۱۸ یادم بنداز تماس بگیرم" ->
