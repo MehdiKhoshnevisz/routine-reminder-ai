@@ -36,6 +36,12 @@ Every action has a "type" and a "title". Action types:
   (the app will ask them). Only act on all of them if they say "همه" / "هر دو".
 - list: when the user wants to see their routines
 
+MULTIPLE DELETE: If the user wants to delete SEVERAL DIFFERENT routines at once ("ورزش و کتاب خوندن رو حذف کن", "این دوتا رو پاک کن"),
+  output ONE delete action PER routine title. Each with its own title.
+
+REPLY CONTEXT: If "reply_to_routine" is provided, the user replied to that routine's card/message and means THAT specific routine.
+  Use its title exactly, and set routine_id if available.
+
 Output: {{"actions":[...],"message":""}}
 - "message": only when there are NO actions: a short, friendly Persian question or reply.
 
@@ -101,6 +107,12 @@ Examples:
 {{"actions":[{{"type":"update","title":"ورزش","time":"20:00"}}],"message":""}}
 "کتاب خوندن رو حذف کن" ->
 {{"actions":[{{"type":"delete","title":"کتاب خوندن"}}],"message":""}}
+"ورزش و کتاب خوندن رو حذف کن" ->
+{{"actions":[{{"type":"delete","title":"ورزش"}},{{"type":"delete","title":"کتاب خوندن"}}],"message":""}}
+"این دوتا رو پاک کن" ->
+{{"actions":[{{"type":"delete","title":"ورزش"}},{{"type":"delete","title":"کتاب خوندن"}}],"message":""}}
+(routines: "#4 ورزش - هر روز - ساعت 07:00", "#9 ورزش - هر روز - ساعت 19:00"; user said "همه رو حذف کن") ->
+{{"actions":[{{"type":"delete","title":"ورزش"}}],"message":""}}
 "سلام، خوبی؟" ->
 {{"actions":[],"message":"سلام! خوبم مرسی :) بگو چه کاری رو برات یادآوری کنم؟"}}
 "ساعت ۷ یادم بنداز" ->
@@ -190,14 +202,29 @@ def _ampm_note(message: str, actions) -> str:
     return ""
 
 
-async def chat(db: AsyncSession, user: User, message: str) -> str:
+async def chat(db: AsyncSession, user: User, message: str, reply_to_routine: str | None = None) -> str:
+    """Chat with the agent.
+
+    Args:
+        db: Database session
+        user: User object
+        message: User's message text
+        reply_to_routine: If user replied to a routine card, the routine's title (and #id) to give context
+    """
     now = datetime.now(ZoneInfo(user.timezone))
     routines = await rs.list_routines(db, user.id)
+
+    # Add reply context to system prompt if available
+    reply_context = ""
+    if reply_to_routine:
+        reply_context = f"\n\nREPLY CONTEXT: The user replied to this routine: {reply_to_routine}. They mean THIS specific routine."
+
     system = SYSTEM_PROMPT.format(
         now=now.strftime("%Y-%m-%d %H:%M"),
         weekday=now.strftime("%A"),
         routines="\n".join(rs.format_routine(r) for r in routines) or "(هیچ)",
-    )
+    ) + reply_context
+
     history = await state_service.get_agent_history(db, user.id)
     messages = [{"role": "system", "content": system}, *history, {"role": "user", "content": message}]
 

@@ -575,11 +575,20 @@ async def on_message(update: Update, ctx: ContextTypes.DEFAULT_TYPE):
         await _handle_awaiting(update, ctx, awaiting, text)
         return
 
+    # Check if user replied to a bot message containing a routine card
+    reply_to_routine = None
+    if update.message.reply_to_message and update.message.reply_to_message.from_user:
+        if update.message.reply_to_message.from_user.id == ctx.bot.id:
+            # Extract routine title from the replied message (format: "Title\n#ID - ...")
+            replied_text = update.message.reply_to_message.text or update.message.reply_to_message.caption or ""
+            if replied_text and ("#" in replied_text or "شارپ" in replied_text):
+                reply_to_routine = replied_text.split("\n")[0]
+
     await ctx.bot.send_chat_action(update.effective_chat.id, ChatAction.TYPING)
     async with SessionLocal() as db:
         user = await _user(db, update)
         try:
-            reply = await agent.chat(db, user, text)
+            reply = await agent.chat(db, user, text, reply_to_routine=reply_to_routine)
         except RateLimitError:
             log.warning("OpenRouter rate limited")
             reply = "الان درخواست‌ها خیلی زیاده. لطفاً یک دقیقه دیگه دوباره امتحان کن."
