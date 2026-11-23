@@ -14,7 +14,7 @@ class Settings(BaseSettings):
     # OpenRouter (OpenAI-compatible API). Key: https://openrouter.ai/keys
     OPENROUTER_API_KEY: str = ""  # set in .env, never commit a real key
     # Any model id from https://openrouter.ai/models
-    OPENROUTER_MODEL: str = "anthropic/claude-3.5-sonnet"
+    OPENROUTER_MODEL: str = "anthropic/claude-sonnet-5.5"
     OPENROUTER_BASE_URL: str = "https://openrouter.ai/api/v1"
     # Per-request timeout (seconds) and automatic retries on 429/5xx/connection errors.
     OPENROUTER_TIMEOUT: float = 30.0
